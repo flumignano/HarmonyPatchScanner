@@ -5,6 +5,7 @@ using System.IO;
 using System.Linq;
 using System.Reflection;
 using HarmonyPatchScanner.Core;
+using RimWorld;
 using Verse;
 
 namespace HarmonyPatchScanner.RimWorld
@@ -45,7 +46,7 @@ namespace HarmonyPatchScanner.RimWorld
             if (string.IsNullOrEmpty(assemblyName))
                 return null;
 
-            return _modByAssembly.TryGetValue(assemblyName, out var mod) ? mod.ModId : null;
+            return _modByAssembly.TryGetValue(assemblyName!, out var mod) ? mod.ModId : null;
         }
 
         public int? GetLoadOrderPositionForAssembly(string? assemblyName)
@@ -53,14 +54,14 @@ namespace HarmonyPatchScanner.RimWorld
             if (string.IsNullOrEmpty(assemblyName))
                 return null;
 
-            return _modByAssembly.TryGetValue(assemblyName, out var mod) ? mod.Position : null;
+            return _modByAssembly.TryGetValue(assemblyName!, out var mod) ? mod.Position : null;
         }
 
         public string GetOwnerDisplayName(Assembly? patchAssembly, string? harmonyOwner)
         {
             var assemblyName = patchAssembly?.GetName()?.Name;
             if (!string.IsNullOrEmpty(assemblyName) &&
-                _modByAssembly.TryGetValue(assemblyName, out var mod))
+                _modByAssembly.TryGetValue(assemblyName!, out var mod))
             {
                 return $"{mod.DisplayName} ({assemblyName})";
             }
@@ -70,7 +71,7 @@ namespace HarmonyPatchScanner.RimWorld
 
         public bool IsCommunityLibrary(string? modId, string? assemblyName)
         {
-            if (!string.IsNullOrEmpty(modId) && CommunityLibraryPackageIds.Contains(modId))
+            if (!string.IsNullOrEmpty(modId) && CommunityLibraryPackageIds.Contains(modId!))
                 return true;
 
             return string.Equals(assemblyName, "0Harmony", StringComparison.OrdinalIgnoreCase);
@@ -148,7 +149,11 @@ namespace HarmonyPatchScanner.RimWorld
                 type.GetProperty("PackageId", BindingFlags.Instance | BindingFlags.Public);
 
             var value = property?.GetValue(mod, null) as string;
-            return string.IsNullOrWhiteSpace(value) ? mod.Name ?? "Unknown" : value;
+            if (!string.IsNullOrWhiteSpace(value))
+                return value!;
+
+            var displayName = mod.Name;
+            return string.IsNullOrWhiteSpace(displayName) ? "Unknown" : displayName!;
         }
 
         private static bool IsOfficialPackage(string packageId, IReadOnlyCollection<string> assemblies)

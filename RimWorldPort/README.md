@@ -37,10 +37,11 @@ Those pieces now belong in a host adapter. The RimWorld template in
 ## Porting Shape
 
 1. Compile or copy `HarmonyPatchScanner.Core` into the RimWorld mod assembly.
-2. Implement `IPatchScannerHost` using RimWorld/Verse APIs.
+2. Build `HarmonyPatchScanner.RimWorld`, which implements `IPatchScannerHost` using
+   RimWorld/Verse APIs and exposes the scanner through a Verse settings window.
 3. Build options with `PatchScannerOptions.CreateRimWorldDefaults()`.
-4. Call the service from a debug button, mod settings UI, keybind, or DevMode action.
-5. Write logs under the RimWorld config folder or the mod's own writable output folder.
+4. Use the in-game settings button to open the scanner UI.
+5. Logs are written under `Config/HarmonyPatchScanner/logs`.
 
 The output file names intentionally match the Bannerlord mod so existing user habits
 carry across.

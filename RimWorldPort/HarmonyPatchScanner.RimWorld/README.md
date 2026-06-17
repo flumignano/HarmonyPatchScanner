@@ -1,19 +1,20 @@
-# RimWorld Adapter Template
+# RimWorld Mod UI
 
-`RimWorldPatchScannerAdapter.cs` is a drop-in starting point for the RimWorld mod.
-It is kept outside the core project because it references Verse/RimWorld APIs that
-are not available in this Bannerlord source folder.
+This project is the RimWorld-facing mod layer for the extracted scanner core. It uses
+the same tested Verse `Mod` + `Window` pattern as PatchDoctor and exposes the original
+Bannerlord actions in-game:
 
-Expected integration:
+- `Scan all Harmony patches` -> `AllHarmonyPatches.txt`
+- `Find duplicate/conflicting patches` -> `DuplicateHarmonyPatches.txt`
+- `Scan selected mod` -> `ModuleScan_<mod>.txt`
+- `Exclude common lifecycle methods`
+- `Exclude community libraries`
 
-```csharp
-var options = PatchScannerOptions.CreateRimWorldDefaults();
-var service = new PatchScannerService(new RimWorldPatchScannerAdapter());
+Build with:
 
-service.ExportAllPatches(options);
-service.ExportConflictReport(options);
-service.ExportModuleReport(options, "your.package.id");
+```powershell
+dotnet build .\RimWorldPort\HarmonyPatchScanner.RimWorld\HarmonyPatchScanner.RimWorld.csproj
 ```
 
-Wire those calls to a mod settings button, a DevMode gizmo, or any debug action you
-prefer. The service writes the same report file names used by the Bannerlord tool.
+The output path is `1.6/Assemblies`, so the repository root can be used as the
+RimWorld mod folder once `About/About.xml` is present.

@@ -1,0 +1,23 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputPath>..\..\1.6\Assemblies</OutputPath>
+    <TargetFramework>net48</TargetFramework>
+    <AssemblyName>HarmonyPatchScanner.RimWorld</AssemblyName>
+    <RootNamespace>HarmonyPatchScanner.RimWorld</RootNamespace>
+    <AppendTargetFrameworkToOutputPath>false</AppendTargetFrameworkToOutputPath>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+    <DebugType>None</DebugType>
+    <LangVersion>latest</LangVersion>
+    <Nullable>enable</Nullable>
+    <DefineConstants>$(DefineConstants);RIMWORLD</DefineConstants>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\HarmonyPatchScanner.Core\HarmonyPatchScanner.Core.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Krafs.Rimworld.Ref" Version="*" ExcludeAssets="runtime" IncludeAssets="compile; build; native; contentfiles; analyzers; buildtransitive" />
+    <PackageReference Include="Lib.Harmony" Version="*" ExcludeAssets="runtime" />
+  </ItemGroup>
+</Project>
