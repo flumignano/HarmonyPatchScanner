@@ -1,0 +1,12 @@
+Harmony Patch Scanner extraction
+
+Original Bannerlord mod:
+Harmony Patch Scanner by TadasTheLithuanian
+https://www.nexusmods.com/mountandblade2bannerlord/mods/9179
+
+Local source license:
+MIT License, copyright (c) 2026 TadasTheLithuanian.
+
+This extracted package keeps the scanning, conflict analysis, and text log exporting
+logic while moving Bannerlord-specific module, UI, notification, and filesystem access
+behind host-game adapter interfaces.
