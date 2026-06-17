@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ModMetaData>
-  <name>Harmony Patch Scanner</name>
-  <author>b0nk, ported from TadasTheLithuanian</author>
+  <name>Harmony Patch Scanner for RimWorld</name>
+  <author>TadasTheLithuanian, ported by b0nk</author>
   <packageId>b0nk.harmonypatchscanner</packageId>
   <modVersion>0.1.0-dev.1</modVersion>
   <supportedVersions>
