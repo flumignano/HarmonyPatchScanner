@@ -10,25 +10,27 @@ namespace HarmonyPatchScanner.RimWorld.UI
 {
     internal static class PatchScannerDetailsPanel
     {
+        private static string cachedMeasuredText = string.Empty;
+        private static float cachedMeasuredWidth = -1f;
+        private static float cachedMeasuredHeight;
+
         public static void Draw(
             Rect rect,
-            PatchScannerUiSummary? summary,
-            ModLoadInfo? selectedModule,
-            string currentReport,
+            string detailsText,
             ref Vector2 scrollPosition)
         {
             Widgets.DrawMenuSection(rect);
             var inner = rect.ContractedBy(8f);
-            var text = BuildDetailsText(summary, selectedModule, currentReport);
-            var height = Math.Max(inner.height, Text.CalcHeight(text, inner.width - 16f) + 32f);
+            var textWidth = inner.width - 16f;
+            var height = Math.Max(inner.height, GetMeasuredHeight(detailsText, textWidth) + 32f);
             var viewRect = new Rect(0f, 0f, inner.width - 16f, height);
 
             Widgets.BeginScrollView(inner, ref scrollPosition, viewRect);
-            Widgets.Label(new Rect(0f, 0f, viewRect.width, height + 8f), text);
+            Widgets.Label(new Rect(0f, 0f, viewRect.width, height + 8f), detailsText);
             Widgets.EndScrollView();
         }
 
-        private static string BuildDetailsText(PatchScannerUiSummary? summary, ModLoadInfo? selectedModule, string currentReport)
+        public static string BuildDetailsText(PatchScannerUiSummary? summary, ModLoadInfo? selectedModule, string currentReport)
         {
             var builder = new StringBuilder();
             builder.AppendLine(currentReport);
@@ -36,7 +38,7 @@ namespace HarmonyPatchScanner.RimWorld.UI
 
             if (summary == null)
             {
-                builder.AppendLine("Use Scan all, Find conflicts, or Scan mod to export the same report files as the Bannerlord version.");
+                builder.AppendLine("Use Scan all, Find conflicts, or Scan mod to export Harmony patch reports for the current mod list.");
                 builder.AppendLine();
                 builder.AppendLine("The selected mod panel is still useful before a scan because it shows RimWorld's active load order.");
                 AppendSelectedModule(builder, selectedModule, null);
@@ -162,6 +164,20 @@ namespace HarmonyPatchScanner.RimWorld.UI
         private static string YesNo(bool value)
         {
             return value ? "yes" : "no";
+        }
+
+        private static float GetMeasuredHeight(string text, float width)
+        {
+            if (string.Equals(cachedMeasuredText, text, StringComparison.Ordinal) &&
+                Math.Abs(cachedMeasuredWidth - width) < 0.5f)
+            {
+                return cachedMeasuredHeight;
+            }
+
+            cachedMeasuredText = text;
+            cachedMeasuredWidth = width;
+            cachedMeasuredHeight = Text.CalcHeight(text, width);
+            return cachedMeasuredHeight;
         }
     }
 }

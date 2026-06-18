@@ -15,6 +15,7 @@ namespace HarmonyPatchScanner.RimWorld.UI
         private const float RowTopPadding = 7f;
         private const float RowBottomPadding = 8f;
         private const float RowLineGap = 2f;
+        private static ModuleListLayout? cachedLayout;
 
         public static void Draw(
             Rect rect,
@@ -35,28 +36,63 @@ namespace HarmonyPatchScanner.RimWorld.UI
             mutableSearchText = Widgets.TextField(searchRect, mutableSearchText ?? string.Empty);
 
             var listRect = new Rect(inner.x, searchRect.yMax + 8f, inner.width, inner.yMax - searchRect.yMax - 8f);
-            var modules = loadOrder.Where(mod => MatchesSearch(mod, searchText)).ToList();
             var viewWidth = listRect.width - 16f;
-            var rowHeights = modules.Select(module => CalculateRowHeight(module, summary, viewWidth)).ToList();
-            var viewHeight = Math.Max(listRect.height, TotalRowHeight(rowHeights));
-            var viewRect = new Rect(0f, 0f, viewWidth, viewHeight);
+            var layout = GetLayout(loadOrder, summary, mutableSearchText, viewWidth);
+            var viewRect = new Rect(0f, 0f, viewWidth, Math.Max(listRect.height, layout.ViewHeight));
 
             Widgets.BeginScrollView(listRect, ref scrollPosition, viewRect);
 
             var y = 0f;
-            for (var i = 0; i < modules.Count; i++)
+            var visibleTop = Math.Max(0f, scrollPosition.y - RowGap);
+            var visibleBottom = scrollPosition.y + listRect.height + RowGap;
+            for (var i = 0; i < layout.Rows.Count; i++)
             {
-                var module = modules[i];
-                var rowHeight = rowHeights[i];
+                var rowLayout = layout.Rows[i];
+                var rowHeight = rowLayout.Height;
                 var row = new Rect(0f, y, viewRect.width, rowHeight);
-                DrawModuleRow(row, module, summary, selectedModule, onSelect);
+
+                if (row.yMax >= visibleTop && row.y <= visibleBottom)
+                    DrawModuleRow(row, rowLayout, selectedModule, onSelect);
+
                 y += rowHeight + RowGap;
             }
 
-            if (modules.Count == 0)
+            if (layout.Rows.Count == 0)
                 Widgets.Label(new Rect(0f, 0f, viewRect.width, 60f), "No loaded mods match the search filter.");
 
             Widgets.EndScrollView();
+        }
+
+        private static ModuleListLayout GetLayout(
+            IReadOnlyList<ModLoadInfo> loadOrder,
+            PatchScannerUiSummary? summary,
+            string searchText,
+            float viewWidth)
+        {
+            var normalizedSearch = searchText ?? string.Empty;
+            if (cachedLayout != null &&
+                ReferenceEquals(cachedLayout.LoadOrder, loadOrder) &&
+                ReferenceEquals(cachedLayout.Summary, summary) &&
+                string.Equals(cachedLayout.SearchText, normalizedSearch, StringComparison.Ordinal) &&
+                Math.Abs(cachedLayout.ViewWidth - viewWidth) < 0.5f)
+            {
+                return cachedLayout;
+            }
+
+            var rows = loadOrder
+                .Where(mod => MatchesSearch(mod, normalizedSearch))
+                .Select(module => BuildRowLayout(module, summary, viewWidth))
+                .ToList();
+
+            cachedLayout = new ModuleListLayout(
+                loadOrder,
+                summary,
+                normalizedSearch,
+                viewWidth,
+                rows,
+                TotalRowHeight(rows));
+
+            return cachedLayout;
         }
 
         private static bool MatchesSearch(ModLoadInfo module, string searchText)
@@ -70,35 +106,39 @@ namespace HarmonyPatchScanner.RimWorld.UI
                    module.AssemblyNames.Any(assembly => assembly.ToLowerInvariant().Contains(term));
         }
 
-        private static float TotalRowHeight(IReadOnlyList<float> rowHeights)
+        private static float TotalRowHeight(IReadOnlyList<ModuleRowLayout> rows)
         {
-            if (rowHeights.Count == 0)
+            if (rows.Count == 0)
                 return 0f;
 
-            return rowHeights.Sum() + (rowHeights.Count - 1) * RowGap;
+            return rows.Sum(row => row.Height) + (rows.Count - 1) * RowGap;
         }
 
-        private static float CalculateRowHeight(ModLoadInfo module, PatchScannerUiSummary? summary, float rowWidth)
+        private static ModuleRowLayout BuildRowLayout(ModLoadInfo module, PatchScannerUiSummary? summary, float rowWidth)
         {
             var textWidth = rowWidth - RowHorizontalPadding * 2f;
-            var titleHeight = Text.CalcHeight(TitleText(module), textWidth);
-            var metaHeight = Text.CalcHeight(ModuleTags(module), textWidth);
-            var countHeight = Text.CalcHeight(BuildPatchCounts(module, summary), textWidth);
+            var title = TitleText(module);
+            var meta = ModuleTags(module);
+            var patchCounts = BuildPatchCounts(module, summary);
+            var titleHeight = Text.CalcHeight(title, textWidth);
+            var metaHeight = Text.CalcHeight(meta, textWidth);
+            var countHeight = Text.CalcHeight(patchCounts, textWidth);
 
-            return Math.Max(
+            var height = Math.Max(
                 PatchScannerUiConstants.RowHeight,
                 RowTopPadding + titleHeight + RowLineGap + metaHeight + RowLineGap + countHeight + RowBottomPadding);
+
+            return new ModuleRowLayout(module, title, meta, patchCounts, titleHeight, metaHeight, countHeight, height);
         }
 
         private static void DrawModuleRow(
             Rect rect,
-            ModLoadInfo module,
-            PatchScannerUiSummary? summary,
+            ModuleRowLayout layout,
             ModLoadInfo? selectedModule,
             Action<ModLoadInfo> onSelect)
         {
             var selected = selectedModule != null &&
-                           string.Equals(selectedModule.ModId, module.ModId, StringComparison.OrdinalIgnoreCase);
+                           string.Equals(selectedModule.ModId, layout.Module.ModId, StringComparison.OrdinalIgnoreCase);
 
             if (selected)
                 Widgets.DrawHighlightSelected(rect);
@@ -107,32 +147,29 @@ namespace HarmonyPatchScanner.RimWorld.UI
 
             Widgets.DrawBox(rect);
             if (Widgets.ButtonInvisible(rect))
-                onSelect(module);
+                onSelect(layout.Module);
 
             var textWidth = rect.width - RowHorizontalPadding * 2f;
-            var title = TitleText(module);
-            var meta = ModuleTags(module);
-            var patchCounts = BuildPatchCounts(module, summary);
 
             var titleRect = new Rect(
                 rect.x + RowHorizontalPadding,
                 rect.y + RowTopPadding,
                 textWidth,
-                Text.CalcHeight(title, textWidth));
+                layout.TitleHeight);
             var metaRect = new Rect(
                 titleRect.x,
                 titleRect.yMax + RowLineGap,
                 textWidth,
-                Text.CalcHeight(meta, textWidth));
+                layout.MetaHeight);
             var countRect = new Rect(
                 titleRect.x,
                 metaRect.yMax + RowLineGap,
                 textWidth,
-                Text.CalcHeight(patchCounts, textWidth));
+                layout.PatchCountsHeight);
 
-            Widgets.Label(titleRect, title);
-            Widgets.Label(metaRect, meta);
-            Widgets.Label(countRect, patchCounts);
+            Widgets.Label(titleRect, layout.Title);
+            Widgets.Label(metaRect, layout.Meta);
+            Widgets.Label(countRect, layout.PatchCounts);
         }
 
         private static string TitleText(ModLoadInfo module)
@@ -161,6 +198,64 @@ namespace HarmonyPatchScanner.RimWorld.UI
 
             return moduleSummary.PatchCount + " patches on " + moduleSummary.TargetMethodCount +
                    " methods, " + moduleSummary.SharedTargetCount + " shared target(s)";
+        }
+
+        private sealed class ModuleListLayout
+        {
+            public ModuleListLayout(
+                IReadOnlyList<ModLoadInfo> loadOrder,
+                PatchScannerUiSummary? summary,
+                string searchText,
+                float viewWidth,
+                IReadOnlyList<ModuleRowLayout> rows,
+                float viewHeight)
+            {
+                LoadOrder = loadOrder;
+                Summary = summary;
+                SearchText = searchText;
+                ViewWidth = viewWidth;
+                Rows = rows;
+                ViewHeight = viewHeight;
+            }
+
+            public IReadOnlyList<ModLoadInfo> LoadOrder { get; }
+            public PatchScannerUiSummary? Summary { get; }
+            public string SearchText { get; }
+            public float ViewWidth { get; }
+            public IReadOnlyList<ModuleRowLayout> Rows { get; }
+            public float ViewHeight { get; }
+        }
+
+        private sealed class ModuleRowLayout
+        {
+            public ModuleRowLayout(
+                ModLoadInfo module,
+                string title,
+                string meta,
+                string patchCounts,
+                float titleHeight,
+                float metaHeight,
+                float patchCountsHeight,
+                float height)
+            {
+                Module = module;
+                Title = title;
+                Meta = meta;
+                PatchCounts = patchCounts;
+                TitleHeight = titleHeight;
+                MetaHeight = metaHeight;
+                PatchCountsHeight = patchCountsHeight;
+                Height = height;
+            }
+
+            public ModLoadInfo Module { get; }
+            public string Title { get; }
+            public string Meta { get; }
+            public string PatchCounts { get; }
+            public float TitleHeight { get; }
+            public float MetaHeight { get; }
+            public float PatchCountsHeight { get; }
+            public float Height { get; }
         }
     }
 }

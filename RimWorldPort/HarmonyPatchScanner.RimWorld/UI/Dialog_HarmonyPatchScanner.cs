@@ -1,6 +1,7 @@
 #if RIMWORLD
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using HarmonyPatchScanner.Core;
 using RimWorld;
@@ -25,8 +26,10 @@ namespace HarmonyPatchScanner.RimWorld.UI
         private Vector2 actionsScroll;
         private string searchText = string.Empty;
         private string statusText = "Ready.";
+        private string statusTooltipText = "Ready.";
         private string lastExportPath = string.Empty;
         private string currentReport = "No scan has been run.";
+        private string detailsText = string.Empty;
 
         public Dialog_HarmonyPatchScanner(HarmonyPatchScannerSettings settings)
         {
@@ -36,6 +39,7 @@ namespace HarmonyPatchScanner.RimWorld.UI
             loadOrder = adapter.GetLoadOrder();
             logDirectory = adapter.GetLogDirectory();
             selectedModule = ResolveInitialModule();
+            RefreshDetailsText();
 
             doCloseX = true;
             closeOnClickedOutside = false;
@@ -114,7 +118,7 @@ namespace HarmonyPatchScanner.RimWorld.UI
                 ref moduleScroll,
                 ref searchText);
 
-            PatchScannerDetailsPanel.Draw(detailsRect, uiSummary, selectedModule, currentReport, ref detailsScroll);
+            PatchScannerDetailsPanel.Draw(detailsRect, detailsText, ref detailsScroll);
 
             PatchScannerActionsPanel.Draw(
                 actionsRect,
@@ -134,7 +138,20 @@ namespace HarmonyPatchScanner.RimWorld.UI
             Widgets.DrawMenuSection(rect);
             var labelRect = rect.ContractedBy(6f);
             labelRect.height = PatchScannerUiConstants.TextLineHeight;
-            Widgets.Label(labelRect, statusText);
+
+            var previousWordWrap = Text.WordWrap;
+            Text.WordWrap = false;
+            try
+            {
+                Widgets.Label(labelRect, statusText);
+            }
+            finally
+            {
+                Text.WordWrap = previousWordWrap;
+            }
+
+            if (!string.IsNullOrEmpty(statusTooltipText))
+                TooltipHandler.TipRegion(rect, statusTooltipText);
         }
 
         private void OnModuleSelected(ModLoadInfo module)
@@ -143,7 +160,8 @@ namespace HarmonyPatchScanner.RimWorld.UI
             settings.SelectedModuleId = module.ModId;
             detailsScroll = Vector2.zero;
             actionsScroll = Vector2.zero;
-            statusText = "Selected " + module.DisplayName + ".";
+            SetStatus("Selected " + module.DisplayName + ".");
+            RefreshDetailsText();
         }
 
         private ModLoadInfo? ResolveInitialModule()
@@ -182,7 +200,7 @@ namespace HarmonyPatchScanner.RimWorld.UI
         {
             if (selectedModule == null)
             {
-                statusText = "Select a mod first.";
+                SetStatus("Select a mod first.");
                 Messages.Message(statusText, MessageTypeDefOf.RejectInput, false);
                 return;
             }
@@ -198,13 +216,14 @@ namespace HarmonyPatchScanner.RimWorld.UI
                 snapshot = result.Snapshot;
                 uiSummary = snapshot == null ? null : PatchScannerUiSummary.Build(snapshot, loadOrder);
                 lastExportPath = result.FilePath;
-                statusText = result.Message;
+                SetStatus(ShortenExportStatus(result.Message, result.FilePath), result.Message);
                 currentReport = reportName + " completed at " + DateTime.Now.ToString("HH:mm:ss") + ".";
+                RefreshDetailsText();
                 detailsScroll = Vector2.zero;
             }
             catch (Exception ex)
             {
-                statusText = reportName + " failed: " + ex.Message;
+                SetStatus(reportName + " failed: " + ex.Message);
                 Messages.Message(statusText, MessageTypeDefOf.RejectInput, false);
                 Log.Error("[HarmonyPatchScanner] " + ex);
             }
@@ -216,7 +235,8 @@ namespace HarmonyPatchScanner.RimWorld.UI
             uiSummary = null;
             lastExportPath = string.Empty;
             currentReport = "No scan has been run.";
-            statusText = "Cleared.";
+            SetStatus("Cleared.");
+            RefreshDetailsText();
             detailsScroll = Vector2.zero;
         }
 
@@ -224,12 +244,34 @@ namespace HarmonyPatchScanner.RimWorld.UI
         {
             if (string.IsNullOrEmpty(lastExportPath))
             {
-                statusText = "No exported log path to copy yet.";
+                SetStatus("No exported log path to copy yet.");
                 return;
             }
 
             GUIUtility.systemCopyBuffer = lastExportPath;
-            statusText = "Copied log path to clipboard.";
+            SetStatus("Copied log path to clipboard.");
+        }
+
+        private void RefreshDetailsText()
+        {
+            detailsText = PatchScannerDetailsPanel.BuildDetailsText(uiSummary, selectedModule, currentReport);
+        }
+
+        private void SetStatus(string text, string? tooltip = null)
+        {
+            statusText = text;
+            statusTooltipText = tooltip ?? text;
+        }
+
+        private static string ShortenExportStatus(string message, string filePath)
+        {
+            if (string.IsNullOrEmpty(filePath))
+                return message;
+
+            var fileName = Path.GetFileName(filePath);
+            return string.IsNullOrEmpty(fileName)
+                ? message
+                : message.Replace(filePath, fileName);
         }
     }
 }

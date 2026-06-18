@@ -103,7 +103,22 @@ namespace HarmonyPatchScanner.Core
 
         private static string NormalizePath(string path)
         {
-            return Path.GetFullPath(path).Replace('\\', '/');
+            var separator = Path.DirectorySeparatorChar;
+            var alternateSeparator = separator == '\\' ? '/' : '\\';
+            var normalized = Path.GetFullPath(path).Replace(alternateSeparator, separator);
+            var preservedPrefix = string.Empty;
+
+            if (separator == '\\' && normalized.StartsWith(@"\\", StringComparison.Ordinal))
+            {
+                preservedPrefix = @"\\";
+                normalized = normalized.Substring(2);
+            }
+
+            var doubledSeparator = new string(separator, 2);
+            while (normalized.Contains(doubledSeparator))
+                normalized = normalized.Replace(doubledSeparator, separator.ToString());
+
+            return preservedPrefix + normalized;
         }
 
         private PatchExportResult Complete(

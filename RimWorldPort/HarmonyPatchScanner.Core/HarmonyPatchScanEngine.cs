@@ -82,7 +82,7 @@ namespace HarmonyPatchScanner.Core
                 }
                 catch
                 {
-                    // Match the Bannerlord scanner: one malformed patch must not stop the report.
+                    // One malformed patch must not stop the report.
                 }
             }
         }

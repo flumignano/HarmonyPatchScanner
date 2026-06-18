@@ -12,58 +12,6 @@ namespace HarmonyPatchScanner.Core
         public HashSet<string> CommonLifecycleMethodNames { get; } =
             new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
-        public static PatchScannerOptions CreateBannerlordDefaults()
-        {
-            var options = new PatchScannerOptions();
-            options.AddLifecycleMethods(
-                "OnSubModuleLoadPostfix",
-                "OnSubModuleLoad",
-                "OnSubModuleUnloadedPostfix",
-                "OnSubModuleUnloaded",
-                "RegisterSubModuleObjectsPostfix",
-                "RegisterSubModuleObjects",
-                "AfterRegisterSubModuleObjectsPostfix",
-                "AfterRegisterSubModuleObjects",
-                "OnGameStartPostfix",
-                "OnGameStart",
-                "OnGameLoadedPostfix",
-                "OnGameLoaded",
-                "OnGameEndPostfix",
-                "OnGameEnd",
-                "OnGameInitializationFinishedPostfix",
-                "OnGameInitializationFinished",
-                "OnAfterGameInitializationFinishedPostfix",
-                "OnAfterGameInitializationFinished",
-                "InitializeGameStarterPostfix",
-                "InitializeGameStarter",
-                "DoLoadingPostfix",
-                "DoLoading",
-                "OnCampaignStartPostfix",
-                "OnCampaignStart",
-                "BeginGameStartPostfix",
-                "BeginGameStart",
-                "OnNewGameCreatedPostfix",
-                "OnNewGameCreated",
-                "OnBeforeMissionBehaviourInitializePostfix",
-                "OnBeforeMissionBehaviourInitialize",
-                "OnMissionBehaviourInitializePostfix",
-                "OnMissionBehaviourInitialize",
-                "OnApplicationTickPostfix",
-                "OnApplicationTick",
-                "OnBeforeInitialModuleScreenSetAsRootPostfix",
-                "OnBeforeInitialModuleScreenSetAsRoot",
-                "AfterAsyncTickTickPostfix",
-                "AfterAsyncTickTick",
-                "OnMultiplayerGameStartPostfix",
-                "OnMultiplayerGameStart",
-                "OnConfigChangedPostfix",
-                "OnConfigChanged",
-                "OnInitialStatePostfix",
-                "OnInitialState");
-
-            return options;
-        }
-
         public static PatchScannerOptions CreateRimWorldDefaults()
         {
             var options = new PatchScannerOptions();

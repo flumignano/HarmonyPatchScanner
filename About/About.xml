@@ -3,7 +3,8 @@
   <name>Harmony Patch Scanner for RimWorld</name>
   <author>TadasTheLithuanian, ported by b0nk</author>
   <packageId>b0nk.harmonypatchscanner</packageId>
-  <modVersion>0.1.0-dev.1</modVersion>
+  <modVersion>0.1.0</modVersion>
+  <url>https://github.com/flumignano/HarmonyPatchScanner</url>
   <supportedVersions>
     <li>1.6</li>
   </supportedVersions>
@@ -15,8 +16,11 @@
     </li>
   </modDependencies>
   <description>
-Harmony Patch Scanner is an in-game RimWorld modder utility for listing all loaded Harmony patches, identifying methods patched by multiple mods, and exporting readable diagnostic reports.
+Harmony Patch Scanner is an in-game RimWorld debugging and mod-development utility.
 
-This RimWorld version preserves the core behavior of the Bannerlord Harmony Patch Scanner by TadasTheLithuanian while using RimWorld's mod settings UI and load-order APIs.
+It lists the Harmony patches currently loaded, identifies methods patched by multiple mods, highlights likely conflict risks, and exports readable diagnostic reports from the mod settings window.
+
+Based on the original Harmony Patch Scanner by TadasTheLithuanian. Source is available under the MIT license:
+https://github.com/flumignano/HarmonyPatchScanner
   </description>
 </ModMetaData>
