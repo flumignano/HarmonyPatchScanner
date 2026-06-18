@@ -1,12 +1,10 @@
-Harmony Patch Scanner extraction
+Harmony Patch Scanner for RimWorld
 
-Original Bannerlord mod:
-Harmony Patch Scanner by TadasTheLithuanian
-https://www.nexusmods.com/mountandblade2bannerlord/mods/9179
+Based on the original Harmony Patch Scanner by TadasTheLithuanian.
 
 Local source license:
 MIT License, copyright (c) 2026 TadasTheLithuanian.
 
-This extracted package keeps the scanning, conflict analysis, and text log exporting
-logic while moving Bannerlord-specific module, UI, notification, and filesystem access
-behind host-game adapter interfaces.
+This package keeps the Harmony patch scanning, conflict analysis, and text report
+exporting logic while providing RimWorld-specific UI, load-order, notification,
+and filesystem integration.

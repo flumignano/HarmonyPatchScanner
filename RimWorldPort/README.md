@@ -1,47 +1,33 @@
-# RimWorld Port Extraction
+# RimWorld Source
 
-This folder contains the isolated Harmony patch scanning feature from the Bannerlord
-`HarmonyPatchScanner` project.
+This folder contains the buildable RimWorld implementation of Harmony Patch Scanner.
 
-## What Was Extracted
+## Projects
 
-- Runtime Harmony patch discovery through `Harmony.GetAllPatchedMethods()` and
-  `Harmony.GetPatchInfo()`.
-- Patch classification by prefix, postfix, transpiler, and finalizer.
-- Patch owner, Harmony owner ID, priority, index, before/after hints, target method,
-  patch method, short-circuit prefix detection, and official-code tagging.
-- Full patch list export to `AllHarmonyPatches.txt`.
-- Cross-mod conflict export to `DuplicateHarmonyPatches.txt`.
-- Single-module report export to `ModuleScan_<module>.txt`.
-- Load-order header support through a host adapter.
-- Common lifecycle method filtering and community-library filtering.
-
-## What Was Removed From The Core
-
-- Bannerlord `MBSubModuleBase` lifecycle hooks.
-- MCM settings and dropdown types.
-- `TaleWorlds.Library.InformationManager` notifications.
-- `TaleWorlds.Engine.Utilities` and `TaleWorlds.ModuleManager` load-order lookup.
-- Bannerlord module-folder log path resolution.
-
-Those pieces now belong in a host adapter. The RimWorld template in
-`HarmonyPatchScanner.RimWorld` shows the expected shape.
+- `HarmonyPatchScanner.Core` contains host-independent Harmony scanning, conflict analysis, report building, and log exporting.
+- `HarmonyPatchScanner.RimWorld` contains the Verse/RimWorld adapter, settings window, mod list UI, and RimWorld-specific paths/load-order integration.
 
 ## Core Entry Points
 
 - `PatchScannerService.ExportAllPatches(options)`
 - `PatchScannerService.ExportConflictReport(options)`
 - `PatchScannerService.ExportModuleReport(options, moduleId)`
-- `HarmonyPatchScanEngine.Scan(options)` if you need the in-memory data model.
+- `HarmonyPatchScanEngine.Scan(options)` for callers that need the in-memory scan model.
 
-## Porting Shape
+## Build
 
-1. Compile or copy `HarmonyPatchScanner.Core` into the RimWorld mod assembly.
-2. Build `HarmonyPatchScanner.RimWorld`, which implements `IPatchScannerHost` using
-   RimWorld/Verse APIs and exposes the scanner through a Verse settings window.
-3. Build options with `PatchScannerOptions.CreateRimWorldDefaults()`.
-4. Use the in-game settings button to open the scanner UI.
-5. Logs are written under `Config/HarmonyPatchScanner/logs`.
+```powershell
+dotnet build .\RimWorldPort\HarmonyPatchScanner.RimWorld\HarmonyPatchScanner.RimWorld.csproj -c Release /p:_EnableDefaultWindowsPlatform=false
+```
 
-The output file names intentionally match the Bannerlord mod so existing user habits
-carry across.
+The RimWorld project writes release assemblies to `1.6\Assemblies` at the repository root.
+
+## Reports
+
+The in-game UI exports:
+
+- `AllHarmonyPatches.txt`
+- `DuplicateHarmonyPatches.txt`
+- `ModuleScan_<mod>.txt`
+
+Reports are saved under `Config\HarmonyPatchScanner\logs` in RimWorld's user config directory.
