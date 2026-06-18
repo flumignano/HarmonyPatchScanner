@@ -13,9 +13,9 @@ namespace HarmonyPatchScanner.RimWorld.UI
         private readonly string detailsText;
         private Vector2 scrollPosition;
 
-        public Dialog_StaticIlFindings(IReadOnlyList<StaticPatchFinding> findings)
+        public Dialog_StaticIlFindings(IReadOnlyList<StaticPatchFinding> findings, int totalFindingCount)
         {
-            detailsText = BuildDetailsText(findings);
+            detailsText = BuildDetailsText(findings, totalFindingCount);
             doCloseX = true;
             closeOnClickedOutside = false;
             absorbInputAroundWindow = false;
@@ -45,14 +45,17 @@ namespace HarmonyPatchScanner.RimWorld.UI
             Widgets.EndScrollView();
         }
 
-        private static string BuildDetailsText(IReadOnlyList<StaticPatchFinding> findings)
+        private static string BuildDetailsText(IReadOnlyList<StaticPatchFinding> findings, int totalFindingCount)
         {
             var builder = new StringBuilder();
 
             // Keep the explanation window read-only: the scan already happened, and this
-            // text only explains passive findings attached to that completed snapshot.
+            // text only explains actionable passive findings attached to that snapshot.
             builder.AppendLine("These findings come from passive IL inspection only.");
             builder.AppendLine("The analyzer does not execute patch methods or replay transpilers.");
+            builder.AppendLine("This window shows deterministic and likely findings.");
+            builder.AppendLine("Potential notes remain in the exported reports.");
+            builder.AppendLine("Shown: " + findings.Count + " / Total static notes: " + totalFindingCount);
             builder.AppendLine();
 
             foreach (var confidenceGroup in findings
@@ -87,9 +90,9 @@ namespace HarmonyPatchScanner.RimWorld.UI
                 case StaticFindingKind.UnconditionalSkipOriginal:
                     return "Deterministic original skip";
                 case StaticFindingKind.ResultWrite:
-                    return "Likely result write";
+                    return "Result write interaction";
                 case StaticFindingKind.RefArgumentMutation:
-                    return "Likely ref argument mutation";
+                    return "Ref argument mutation interaction";
                 case StaticFindingKind.PrivateFieldAccess:
                     return "Private field access";
                 case StaticFindingKind.UnreadableBody:

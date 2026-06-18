@@ -261,13 +261,18 @@ namespace HarmonyPatchScanner.RimWorld.UI
                 return;
             }
 
-            if (snapshot.StaticFindings.Count == 0)
+            var actionableFindings = snapshot.StaticFindings
+                .Where(finding => finding.Confidence == StaticFindingConfidence.Deterministic ||
+                                  finding.Confidence == StaticFindingConfidence.Likely)
+                .ToList();
+
+            if (actionableFindings.Count == 0)
             {
-                SetStatus("No static IL findings in the last scan.");
+                SetStatus("No deterministic or likely static IL findings in the last scan.");
                 return;
             }
 
-            Find.WindowStack.Add(new Dialog_StaticIlFindings(snapshot.StaticFindings));
+            Find.WindowStack.Add(new Dialog_StaticIlFindings(actionableFindings, snapshot.StaticFindings.Count));
         }
 
         private void RefreshDetailsText()

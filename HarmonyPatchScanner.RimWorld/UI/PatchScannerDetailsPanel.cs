@@ -59,8 +59,8 @@ namespace HarmonyPatchScanner.RimWorld.UI
             builder.AppendLine("Potential cross-mod conflicts: " + summary.Conflicts.Count);
             builder.AppendLine("Static IL findings: " +
                                summary.StaticDeterministicFindings + " deterministic, " +
-                               summary.StaticLikelyFindings + " likely, " +
-                               summary.StaticPotentialFindings + " potential");
+                               summary.StaticLikelyFindings + " likely");
+            builder.AppendLine("Potential static notes: " + summary.StaticPotentialFindings + " in exported reports");
             builder.AppendLine();
 
             if (summary.Snapshot.Errors.Count > 0)

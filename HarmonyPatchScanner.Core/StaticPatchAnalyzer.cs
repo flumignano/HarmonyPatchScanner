@@ -30,59 +30,62 @@ namespace HarmonyPatchScanner.Core
 
         public IReadOnlyList<StaticPatchFinding> Analyze(PatchScanSnapshot snapshot)
         {
+            var factsByPatch = snapshot.Patches.ToDictionary(patch => patch, InspectPatch);
             var findings = new List<StaticPatchFinding>();
 
-            foreach (var patch in snapshot.Patches)
+            foreach (var targetGroup in snapshot.Patches.GroupBy(patch => patch.TargetMethod))
             {
-                var patchFindings = AnalyzePatch(patch);
-                patch.StaticFindings = patchFindings;
-                findings.AddRange(patchFindings);
+                var targetFacts = targetGroup
+                    .Select(patch => factsByPatch[patch])
+                    .ToList();
+
+                var resultWriters = targetFacts
+                    .Where(facts => facts.WritesResult)
+                    .ToList();
+
+                var refWritersByName = targetFacts
+                    .SelectMany(facts => facts.RefArgumentWrites.Select(name => new { Facts = facts, Name = name }))
+                    .GroupBy(entry => entry.Name, StringComparer.Ordinal)
+                    .ToDictionary(group => group.Key, group => group.Select(entry => entry.Facts).ToList(), StringComparer.Ordinal);
+
+                foreach (var facts in targetFacts)
+                {
+                    var patchFindings = BuildFindings(facts, resultWriters, refWritersByName);
+                    facts.Patch.StaticFindings = patchFindings;
+                    findings.AddRange(patchFindings);
+                }
             }
 
             return findings;
         }
 
-        private static IReadOnlyList<StaticPatchFinding> AnalyzePatch(PatchRecord patch)
+        private static PatchStaticFacts InspectPatch(PatchRecord patch)
         {
-            var findings = new List<StaticPatchFinding>();
+            var facts = new PatchStaticFacts(patch);
             var method = patch.PatchMethodBase;
 
             if (method == null)
             {
-                findings.Add(CreateFinding(
-                    patch,
-                    StaticFindingConfidence.Potential,
-                    StaticFindingKind.UnreadableBody,
-                    "Patch method metadata is unavailable; static IL inspection skipped."));
-                return findings;
+                facts.MarkUnreadable("Patch method metadata is unavailable; static IL inspection skipped.");
+                return facts;
             }
 
-            MethodBody? body;
             byte[] ilBytes;
-
             try
             {
-                body = method.GetMethodBody();
+                var body = method.GetMethodBody();
                 ilBytes = body?.GetILAsByteArray() ?? Array.Empty<byte>();
             }
             catch (Exception ex)
             {
-                findings.Add(CreateFinding(
-                    patch,
-                    StaticFindingConfidence.Potential,
-                    StaticFindingKind.UnreadableBody,
-                    "Patch method body could not be read: " + ex.GetType().Name + "."));
-                return findings;
+                facts.MarkUnreadable("Patch method body could not be read: " + ex.GetType().Name + ".");
+                return facts;
             }
 
-            if (body == null || ilBytes.Length == 0)
+            if (ilBytes.Length == 0)
             {
-                findings.Add(CreateFinding(
-                    patch,
-                    StaticFindingConfidence.Potential,
-                    StaticFindingKind.UnreadableBody,
-                    "Patch method has no readable IL body."));
-                return findings;
+                facts.MarkUnreadable("Patch method has no readable IL body.");
+                return facts;
             }
 
             IReadOnlyList<IlInstruction> instructions;
@@ -92,12 +95,8 @@ namespace HarmonyPatchScanner.Core
             }
             catch (Exception ex)
             {
-                findings.Add(CreateFinding(
-                    patch,
-                    StaticFindingConfidence.Potential,
-                    StaticFindingKind.UnreadableBody,
-                    "Patch method IL could not be decoded: " + ex.GetType().Name + "."));
-                return findings;
+                facts.MarkUnreadable("Patch method IL could not be decoded: " + ex.GetType().Name + ".");
+                return facts;
             }
 
             // This is the only deterministic v1 claim: a simple bool prefix body that always
@@ -107,11 +106,7 @@ namespace HarmonyPatchScanner.Core
                 methodInfo.ReturnType == typeof(bool) &&
                 IsUnconditionalFalseReturn(instructions))
             {
-                findings.Add(CreateFinding(
-                    patch,
-                    StaticFindingConfidence.Deterministic,
-                    StaticFindingKind.UnconditionalSkipOriginal,
-                    "Prefix appears to return false unconditionally, so Harmony will skip the original method."));
+                facts.UnconditionallySkipsOriginal = true;
             }
 
             foreach (var parameter in method.GetParameters())
@@ -119,37 +114,101 @@ namespace HarmonyPatchScanner.Core
                 var name = parameter.Name ?? string.Empty;
                 var ilArgumentIndex = method.IsStatic ? parameter.Position : parameter.Position + 1;
 
-                // A by-ref __result write can replace what earlier patches or the original method produced.
+                // A by-ref __result write is common and useful; it becomes "likely" only
+                // when another result writer targets the same method.
                 if (string.Equals(name, "__result", StringComparison.Ordinal) &&
                     parameter.ParameterType.IsByRef &&
                     WritesThroughArgument(instructions, ilArgumentIndex))
                 {
-                    findings.Add(CreateFinding(
-                        patch,
-                        StaticFindingConfidence.Likely,
-                        StaticFindingKind.ResultWrite,
-                        "Patch writes through ref/out __result; later result writers may replace this value."));
+                    facts.WritesResult = true;
                 }
                 else if (name.StartsWith("___", StringComparison.Ordinal))
                 {
                     // Triple-underscore parameters are Harmony's private-field access convention.
-                    findings.Add(CreateFinding(
-                        patch,
-                        StaticFindingConfidence.Likely,
-                        StaticFindingKind.PrivateFieldAccess,
-                        "Patch accesses a private field via Harmony's triple-underscore parameter convention."));
+                    facts.PrivateFieldAccesses.Add(name);
                 }
                 else if (parameter.ParameterType.IsByRef &&
                          !name.StartsWith("__", StringComparison.Ordinal) &&
                          WritesThroughArgument(instructions, ilArgumentIndex))
                 {
                     // Ref/out original arguments are visible side effects on the target call.
-                    findings.Add(CreateFinding(
-                        patch,
-                        StaticFindingConfidence.Likely,
-                        StaticFindingKind.RefArgumentMutation,
-                        "Patch writes through a ref/out original method argument."));
+                    facts.RefArgumentWrites.Add(name);
                 }
+            }
+
+            return facts;
+        }
+
+        private static IReadOnlyList<StaticPatchFinding> BuildFindings(
+            PatchStaticFacts facts,
+            IReadOnlyList<PatchStaticFacts> resultWriters,
+            IReadOnlyDictionary<string, List<PatchStaticFacts>> refWritersByName)
+        {
+            var findings = new List<StaticPatchFinding>();
+            var patch = facts.Patch;
+
+            if (facts.UnreadableReason != null)
+            {
+                findings.Add(CreateFinding(
+                    patch,
+                    StaticFindingConfidence.Potential,
+                    StaticFindingKind.UnreadableBody,
+                    facts.UnreadableReason));
+            }
+
+            if (facts.UnconditionallySkipsOriginal)
+            {
+                findings.Add(CreateFinding(
+                    patch,
+                    StaticFindingConfidence.Deterministic,
+                    StaticFindingKind.UnconditionalSkipOriginal,
+                    "Prefix appears to return false unconditionally, so Harmony will skip the original method."));
+            }
+
+            if (facts.WritesResult)
+            {
+                var confidence = resultWriters.Count > 1
+                    ? StaticFindingConfidence.Likely
+                    : StaticFindingConfidence.Potential;
+
+                var explanation = resultWriters.Count > 1
+                    ? "Patch writes through ref/out __result on a target with " + resultWriters.Count + " result writers; later writers may replace earlier values."
+                    : "Patch writes through ref/out __result. This is common and not a conflict by itself.";
+
+                findings.Add(CreateFinding(
+                    patch,
+                    confidence,
+                    StaticFindingKind.ResultWrite,
+                    explanation));
+            }
+
+            foreach (var argumentName in facts.RefArgumentWrites.Distinct(StringComparer.Ordinal))
+            {
+                refWritersByName.TryGetValue(argumentName, out var writers);
+                var writerCount = writers?.Count ?? 1;
+                var confidence = writerCount > 1
+                    ? StaticFindingConfidence.Likely
+                    : StaticFindingConfidence.Potential;
+
+                var explanation = writerCount > 1
+                    ? "Patch writes through ref/out argument '" + argumentName + "' on a target with " + writerCount + " writers for that argument."
+                    : "Patch writes through ref/out argument '" + argumentName + "'. This is a visible side effect, but not a conflict by itself.";
+
+                findings.Add(CreateFinding(
+                    patch,
+                    confidence,
+                    StaticFindingKind.RefArgumentMutation,
+                    explanation));
+            }
+
+            if (facts.PrivateFieldAccesses.Count > 0)
+            {
+                findings.Add(CreateFinding(
+                    patch,
+                    StaticFindingConfidence.Potential,
+                    StaticFindingKind.PrivateFieldAccess,
+                    "Patch accesses private field parameter(s) via Harmony's triple-underscore convention: " +
+                    string.Join(", ", facts.PrivateFieldAccesses.Distinct(StringComparer.Ordinal)) + "."));
             }
 
             return findings;
@@ -437,6 +496,31 @@ namespace HarmonyPatchScanner.Core
         {
             if (offset + count > il.Length)
                 throw new InvalidOperationException("Incomplete IL operand.");
+        }
+
+        private sealed class PatchStaticFacts
+        {
+            public PatchStaticFacts(PatchRecord patch)
+            {
+                Patch = patch;
+            }
+
+            public PatchRecord Patch { get; }
+
+            public string? UnreadableReason { get; private set; }
+
+            public bool UnconditionallySkipsOriginal { get; set; }
+
+            public bool WritesResult { get; set; }
+
+            public List<string> RefArgumentWrites { get; } = new List<string>();
+
+            public List<string> PrivateFieldAccesses { get; } = new List<string>();
+
+            public void MarkUnreadable(string reason)
+            {
+                UnreadableReason = reason;
+            }
         }
 
         private sealed class IlInstruction
