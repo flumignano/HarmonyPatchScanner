@@ -18,7 +18,7 @@
   <description>
 Harmony Patch Scanner is an in-game RimWorld debugging and mod-development utility.
 
-It lists the Harmony patches currently loaded, identifies methods patched by multiple mods, highlights likely conflict risks, and exports readable diagnostic reports from the mod settings window.
+It lists the Harmony patches currently loaded, identifies methods patched by multiple mods, highlights potential conflict risks, and exports readable diagnostic reports from the mod settings window.
 
 Based on the original Harmony Patch Scanner by TadasTheLithuanian. Source is available under the MIT license:
 https://github.com/flumignano/HarmonyPatchScanner

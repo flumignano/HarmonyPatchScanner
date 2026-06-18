@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputPath>..\..\1.6\Assemblies</OutputPath>
+    <OutputPath>..\1.6\Assemblies</OutputPath>
     <TargetFramework>net48</TargetFramework>
     <AssemblyName>HarmonyPatchScanner.RimWorld</AssemblyName>
     <RootNamespace>HarmonyPatchScanner.RimWorld</RootNamespace>

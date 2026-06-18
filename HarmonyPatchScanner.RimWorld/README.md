@@ -15,7 +15,7 @@ Available actions:
 Build with:
 
 ```powershell
-dotnet build .\RimWorldPort\HarmonyPatchScanner.RimWorld\HarmonyPatchScanner.RimWorld.csproj -c Release /p:_EnableDefaultWindowsPlatform=false
+dotnet build .\HarmonyPatchScanner.RimWorld\HarmonyPatchScanner.RimWorld.csproj -c Release /p:_EnableDefaultWindowsPlatform=false
 ```
 
 The output path is `1.6\Assemblies`, so the repository root can be used as the

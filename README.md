@@ -2,7 +2,7 @@
 
 Harmony Patch Scanner is an in-game RimWorld debugging and mod-development utility.
 
-It lists loaded Harmony patches, identifies methods patched by multiple mods, highlights likely conflict risks, and exports readable diagnostic reports from the mod settings window.
+It lists loaded Harmony patches, identifies methods patched by multiple mods, highlights potential conflict risks, and exports readable diagnostic reports from the mod settings window.
 
 ## Features
 
@@ -18,7 +18,7 @@ It lists loaded Harmony patches, identifies methods patched by multiple mods, hi
 ## Build
 
 ```powershell
-dotnet build .\RimWorldPort\HarmonyPatchScanner.RimWorld\HarmonyPatchScanner.RimWorld.csproj -c Release /p:_EnableDefaultWindowsPlatform=false
+dotnet build .\HarmonyPatchScanner.RimWorld\HarmonyPatchScanner.RimWorld.csproj -c Release /p:_EnableDefaultWindowsPlatform=false
 ```
 
 Build output is written to `1.6\Assemblies`.
