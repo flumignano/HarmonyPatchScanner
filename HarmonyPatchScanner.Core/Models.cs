@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reflection;
 
 namespace HarmonyPatchScanner.Core
 {
@@ -17,6 +18,63 @@ namespace HarmonyPatchScanner.Core
         Low = 0,
         Medium = 1,
         High = 2
+    }
+
+    public enum StaticFindingConfidence
+    {
+        Potential = 0,
+        Likely = 1,
+        Observed = 2,
+        Deterministic = 3
+    }
+
+    public enum StaticFindingKind
+    {
+        UnconditionalSkipOriginal,
+        ResultWrite,
+        RefArgumentMutation,
+        PrivateFieldAccess,
+        UnreadableBody,
+        UnsupportedPattern
+    }
+
+    public sealed class StaticPatchFinding
+    {
+        public StaticPatchFinding(
+            string targetMethod,
+            string patchMethod,
+            string patchOwner,
+            HarmonyPatchKind patchKind,
+            int harmonyIndex,
+            StaticFindingConfidence confidence,
+            StaticFindingKind kind,
+            string explanation)
+        {
+            TargetMethod = targetMethod;
+            PatchMethod = patchMethod;
+            PatchOwner = patchOwner;
+            PatchKind = patchKind;
+            HarmonyIndex = harmonyIndex;
+            Confidence = confidence;
+            Kind = kind;
+            Explanation = explanation;
+        }
+
+        public string TargetMethod { get; }
+
+        public string PatchMethod { get; }
+
+        public string PatchOwner { get; }
+
+        public HarmonyPatchKind PatchKind { get; }
+
+        public int HarmonyIndex { get; }
+
+        public StaticFindingConfidence Confidence { get; }
+
+        public StaticFindingKind Kind { get; }
+
+        public string Explanation { get; }
     }
 
     public sealed class ModLoadInfo
@@ -50,6 +108,9 @@ namespace HarmonyPatchScanner.Core
 
         public string PatchMethod { get; set; } = string.Empty;
 
+        // Kept in memory only so static analysis can inspect IL without invoking mod code.
+        public MethodBase? PatchMethodBase { get; set; }
+
         public int Index { get; set; }
 
         public string HarmonyOwner { get; set; } = string.Empty;
@@ -63,6 +124,9 @@ namespace HarmonyPatchScanner.Core
         public int? LoadOrderPosition { get; set; }
 
         public bool TargetsOfficialCode { get; set; }
+
+        // Findings belong to the specific patch record so report builders can print them in context.
+        public IReadOnlyList<StaticPatchFinding> StaticFindings { get; set; } = Array.Empty<StaticPatchFinding>();
     }
 
     public sealed class PatchScanSnapshot
@@ -72,13 +136,15 @@ namespace HarmonyPatchScanner.Core
             int totalPatchedMethods,
             IReadOnlyList<PatchRecord> patches,
             IReadOnlyList<ModLoadInfo> loadOrder,
-            IReadOnlyList<string> errors)
+            IReadOnlyList<string> errors,
+            IReadOnlyList<StaticPatchFinding>? staticFindings = null)
         {
             ScanTime = scanTime;
             TotalPatchedMethods = totalPatchedMethods;
             Patches = patches;
             LoadOrder = loadOrder;
             Errors = errors;
+            StaticFindings = staticFindings ?? Array.Empty<StaticPatchFinding>();
         }
 
         public DateTime ScanTime { get; }
@@ -90,6 +156,13 @@ namespace HarmonyPatchScanner.Core
         public IReadOnlyList<ModLoadInfo> LoadOrder { get; }
 
         public IReadOnlyList<string> Errors { get; }
+
+        public IReadOnlyList<StaticPatchFinding> StaticFindings { get; }
+
+        public PatchScanSnapshot WithStaticFindings(IReadOnlyList<StaticPatchFinding> staticFindings)
+        {
+            return new PatchScanSnapshot(ScanTime, TotalPatchedMethods, Patches, LoadOrder, Errors, staticFindings);
+        }
     }
 
     public sealed class ConflictRecord

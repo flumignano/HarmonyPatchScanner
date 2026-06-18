@@ -17,12 +17,13 @@ namespace HarmonyPatchScanner.RimWorld.UI
             Action scanAll,
             Action findConflicts,
             Action scanModule,
+            Action viewStaticFindings,
             Action copyLastPath,
             ref Vector2 scrollPosition)
         {
             Widgets.DrawMenuSection(rect);
             var inner = rect.ContractedBy(8f);
-            var viewRect = new Rect(0f, 0f, inner.width - 16f, 620f);
+            var viewRect = new Rect(0f, 0f, inner.width - 16f, 670f);
 
             Widgets.BeginScrollView(inner, ref scrollPosition, viewRect);
 
@@ -40,6 +41,10 @@ namespace HarmonyPatchScanner.RimWorld.UI
 
             if (Widgets.ButtonText(new Rect(0f, y, viewRect.width, PatchScannerUiConstants.ButtonHeight), "Scan selected mod"))
                 scanModule();
+            y += PatchScannerUiConstants.ButtonHeight + PatchScannerUiConstants.Gap;
+
+            if (Widgets.ButtonText(new Rect(0f, y, viewRect.width, PatchScannerUiConstants.ButtonHeight), "View static IL findings"))
+                viewStaticFindings();
             y += PatchScannerUiConstants.ButtonHeight + 16f;
 
             Widgets.Label(new Rect(0f, y, viewRect.width, PatchScannerUiConstants.TextLineHeight), "Filters");

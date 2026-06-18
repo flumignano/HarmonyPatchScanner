@@ -129,6 +129,7 @@ namespace HarmonyPatchScanner.RimWorld.UI
                 RunScanAll,
                 RunConflictScan,
                 RunModuleScan,
+                ShowStaticFindings,
                 CopyLastPath,
                 ref actionsScroll);
         }
@@ -250,6 +251,23 @@ namespace HarmonyPatchScanner.RimWorld.UI
 
             GUIUtility.systemCopyBuffer = lastExportPath;
             SetStatus("Copied log path to clipboard.");
+        }
+
+        private void ShowStaticFindings()
+        {
+            if (snapshot == null)
+            {
+                SetStatus("Run a scan before viewing static IL findings.");
+                return;
+            }
+
+            if (snapshot.StaticFindings.Count == 0)
+            {
+                SetStatus("No static IL findings in the last scan.");
+                return;
+            }
+
+            Find.WindowStack.Add(new Dialog_StaticIlFindings(snapshot.StaticFindings));
         }
 
         private void RefreshDetailsText()

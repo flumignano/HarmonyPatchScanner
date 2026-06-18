@@ -39,6 +39,7 @@ namespace HarmonyPatchScanner.Core
                 results.AppendLine($"  - Dangling before/after   : {danglingHints.Count}  (reference a mod that is not loaded - see below)");
             results.AppendLine();
 
+            AppendStaticAnalysisSummary(results, snapshot.StaticFindings);
             AppendDanglingHints(results, danglingHints);
             AppendPatchesByMod(results, patchesByMod);
             AppendPatchCountRanking(results, patchesByMod);
@@ -56,7 +57,7 @@ namespace HarmonyPatchScanner.Core
 
             AppendLoadOrderHeader(results, snapshot.LoadOrder);
             results.AppendLine("This report lists methods patched by more than one mod.");
-            results.AppendLine("Patches may conflict depending on their type and priority.");
+            results.AppendLine("Structural matches are potential conflicts unless static evidence says otherwise.");
             results.AppendLine();
 
             AppendFilterNotes(results, options);
@@ -78,22 +79,23 @@ namespace HarmonyPatchScanner.Core
                 c.Patches.Any(p => p.CanShortCircuit));
 
             results.AppendLine($"Total Methods Patched          : {patchesByTarget.Count}");
-            results.AppendLine($"Cross-Mod Conflicts            : {conflictingMethods.Count}  ({highRisk} High / {mediumRisk} Medium / {lowRisk} Low)");
+            results.AppendLine($"Potential Cross-Mod Conflicts  : {conflictingMethods.Count}  ({highRisk} Potential High / {mediumRisk} Potential Medium / {lowRisk} Potential Low)");
             results.AppendLine($"  - Targeting official code    : {officialConflicts}");
             results.AppendLine($"  - Short-circuit prefix risk  : {shortCircuitConflicts}  (one prefix can silence another mod's prefix)");
             results.AppendLine($"Same-Mod Multi-Patch (suspect) : {sameModMultiPatches.Count}");
             results.AppendLine();
+            AppendStaticAnalysisSummary(results, snapshot.StaticFindings);
 
             if (conflictingMethods.Count == 0 && sameModMultiPatches.Count == 0)
             {
-                results.AppendLine("No conflicts detected. All methods are patched by a single mod.");
+                results.AppendLine("No potential cross-mod conflicts detected. All methods are patched by a single mod.");
                 return results.ToString();
             }
 
             AppendConflictTableOfContents(results, conflictingMethods, sameModMultiPatches);
-            AppendConflictsByRiskLevel(results, conflictingMethods, ConflictRiskLevel.High, "HIGH RISK CONFLICTS");
-            AppendConflictsByRiskLevel(results, conflictingMethods, ConflictRiskLevel.Medium, "MEDIUM RISK CONFLICTS");
-            AppendConflictsByRiskLevel(results, conflictingMethods, ConflictRiskLevel.Low, "LOW RISK CONFLICTS");
+            AppendConflictsByRiskLevel(results, conflictingMethods, ConflictRiskLevel.High, "POTENTIAL HIGH RISK CONFLICTS");
+            AppendConflictsByRiskLevel(results, conflictingMethods, ConflictRiskLevel.Medium, "POTENTIAL MEDIUM RISK CONFLICTS");
+            AppendConflictsByRiskLevel(results, conflictingMethods, ConflictRiskLevel.Low, "POTENTIAL LOW RISK CONFLICTS");
             AppendSameModSection(results, sameModMultiPatches);
             AppendConflictSummary(results, conflictingMethods, sameModMultiPatches);
 
@@ -152,8 +154,9 @@ namespace HarmonyPatchScanner.Core
             results.AppendLine($"  - Finalizers              : {totalFinalizers}");
             results.AppendLine($"  - Prefixes (short-circuit): {totalShortCircuits}  (can skip original method)");
             results.AppendLine($"  - Target official code    : {totalOfficial}");
-            results.AppendLine($"Conflicts with other mods   : {conflictsByTarget.Count}");
+            results.AppendLine($"Potential conflicts with other mods: {conflictsByTarget.Count}");
             results.AppendLine();
+            AppendStaticAnalysisSummary(results, snapshot.StaticFindings.Where(f => modulePatches.Any(p => FindingMatchesPatch(f, p))).ToList());
 
             if (modulePatches.Count == 0)
             {
@@ -254,6 +257,27 @@ namespace HarmonyPatchScanner.Core
             sb.AppendLine();
         }
 
+        private static void AppendStaticAnalysisSummary(StringBuilder sb, IReadOnlyList<StaticPatchFinding> findings)
+        {
+            sb.AppendLine("====================================================");
+            sb.AppendLine("  Static IL Analysis");
+            sb.AppendLine("====================================================");
+
+            if (findings.Count == 0)
+            {
+                sb.AppendLine("  No static IL findings.");
+                sb.AppendLine();
+                return;
+            }
+
+            sb.AppendLine($"  Findings        : {findings.Count}");
+            sb.AppendLine($"    Deterministic : {findings.Count(f => f.Confidence == StaticFindingConfidence.Deterministic)}");
+            sb.AppendLine($"    Likely        : {findings.Count(f => f.Confidence == StaticFindingConfidence.Likely)}");
+            sb.AppendLine($"    Potential     : {findings.Count(f => f.Confidence == StaticFindingConfidence.Potential)}");
+            sb.AppendLine($"    Unreadable    : {findings.Count(f => f.Kind == StaticFindingKind.UnreadableBody)}");
+            sb.AppendLine();
+        }
+
         private static void AppendDanglingHints(StringBuilder sb, List<(string PatchMethod, string HintType, string ReferencedId)> danglingHints)
         {
             if (danglingHints.Count == 0)
@@ -299,7 +323,7 @@ namespace HarmonyPatchScanner.Core
                     if (allPatches.Any(p => p.CanShortCircuit) &&
                         allPatches.Count(p => p.PatchType == HarmonyPatchKind.Prefix) > 1)
                     {
-                        sb.AppendLine("    WARNING: Short-circuit chain: a prefix here can return false,");
+                        sb.AppendLine("    Potential short-circuit chain: a prefix here can return false,");
                         sb.AppendLine("    which skips the original and all lower-priority prefixes.");
                     }
 
@@ -338,9 +362,9 @@ namespace HarmonyPatchScanner.Core
             sb.AppendLine("====================================================");
             sb.AppendLine();
 
-            AppendTocSection(sb, conflicts, ConflictRiskLevel.High, "HIGH RISK");
-            AppendTocSection(sb, conflicts, ConflictRiskLevel.Medium, "MEDIUM RISK");
-            AppendTocSection(sb, conflicts, ConflictRiskLevel.Low, "LOW RISK");
+            AppendTocSection(sb, conflicts, ConflictRiskLevel.High, "POTENTIAL HIGH RISK");
+            AppendTocSection(sb, conflicts, ConflictRiskLevel.Medium, "POTENTIAL MEDIUM RISK");
+            AppendTocSection(sb, conflicts, ConflictRiskLevel.Low, "POTENTIAL LOW RISK");
 
             if (sameModConflicts.Count > 0)
             {
@@ -404,13 +428,13 @@ namespace HarmonyPatchScanner.Core
 
             if (conflict.HasMultipleTranspilers)
             {
-                sb.AppendLine("  HIGH RISK: Multiple transpilers detected.");
+                sb.AppendLine("  POTENTIAL HIGH RISK: Multiple transpilers detected.");
                 sb.AppendLine("    Each transpiler sees IL already modified by the previous one.");
                 sb.AppendLine("    Execution order shown below - first in list sees the original IL.");
             }
             else if (conflict.HasMultiplePrefixesWithSamePriority)
             {
-                sb.AppendLine("  MEDIUM RISK: Multiple prefixes share the same priority.");
+                sb.AppendLine("  POTENTIAL MEDIUM RISK: Multiple prefixes share the same priority.");
                 sb.AppendLine("    Tie-broken by before/after hints, Harmony index, then load position.");
                 if (conflict.HasIndeterminateOrder)
                     sb.AppendLine("  INDETERMINATE: Patches share priority, index, load position, and no before/after hints.");
@@ -418,7 +442,7 @@ namespace HarmonyPatchScanner.Core
 
             if (hasShortCircuit)
             {
-                sb.AppendLine("  SHORT-CIRCUIT RISK: At least one prefix returns bool.");
+                sb.AppendLine("  POTENTIAL SHORT-CIRCUIT RISK: At least one prefix returns bool.");
                 sb.AppendLine("    If it returns false, the original method and all lower-priority prefixes");
                 sb.AppendLine("    from other mods are silently skipped.");
             }
@@ -470,7 +494,7 @@ namespace HarmonyPatchScanner.Core
             sb.AppendLine("  Conflict Summary");
             sb.AppendLine("====================================================");
             sb.AppendLine();
-            sb.AppendLine($"  Cross-Mod Conflicts  : {conflicts.Count}");
+            sb.AppendLine($"  Potential Cross-Mod  : {conflicts.Count}");
             sb.AppendLine($"    High   : {conflicts.Count(c => c.RiskLevel == ConflictRiskLevel.High)}");
             sb.AppendLine($"    Medium : {conflicts.Count(c => c.RiskLevel == ConflictRiskLevel.Medium)}");
             sb.AppendLine($"    Low    : {conflicts.Count(c => c.RiskLevel == ConflictRiskLevel.Low)}");
@@ -509,14 +533,14 @@ namespace HarmonyPatchScanner.Core
                 var patches = targetGroup.Value;
                 var hasConflict = conflictsByTarget.ContainsKey(targetGroup.Key);
                 var officialTag = patches.First().TargetsOfficialCode ? "  [official code]" : string.Empty;
-                var conflictTag = hasConflict ? "  [CONFLICT]" : string.Empty;
+                var conflictTag = hasConflict ? "  [potential conflict]" : string.Empty;
 
                 sb.AppendLine($"  Target : {MethodNameFormatter.FormatMethodName(targetGroup.Key, verbose: false)}{officialTag}{conflictTag}");
 
                 if (patches.Any(p => p.CanShortCircuit) &&
                     patches.Count(p => p.PatchType == HarmonyPatchKind.Prefix) > 1)
                 {
-                    sb.AppendLine("    WARNING: Short-circuit chain: a prefix here can return false,");
+                    sb.AppendLine("    Potential short-circuit chain: a prefix here can return false,");
                     sb.AppendLine("    which skips the original and all lower-priority prefixes.");
                 }
 
@@ -548,6 +572,7 @@ namespace HarmonyPatchScanner.Core
                     sb.AppendLine($"    Priority      : {MethodNameFormatter.FormatPriority(patch.Priority)}");
                     sb.AppendLine($"    Harmony Index : {MethodNameFormatter.FormatIndex(patch.Index)}");
                     sb.AppendLine($"    Harmony ID    : {patch.HarmonyOwner}");
+                    AppendStaticFindings(sb, patch, "    ");
                     sb.AppendLine();
                 }
             }
@@ -563,7 +588,7 @@ namespace HarmonyPatchScanner.Core
             if (conflictsByTarget.Count == 0)
             {
                 sb.AppendLine("====================================================");
-                sb.AppendLine("  No Conflicts Detected");
+                sb.AppendLine("  No Potential Conflicts Detected");
                 sb.AppendLine("====================================================");
                 sb.AppendLine();
                 sb.AppendLine($"  No other mod patches the same methods as {moduleName}.");
@@ -572,7 +597,7 @@ namespace HarmonyPatchScanner.Core
             }
 
             sb.AppendLine("====================================================");
-            sb.AppendLine("  Conflicts - Methods Also Patched by Other Mods");
+            sb.AppendLine("  Potential Conflicts - Methods Also Patched by Other Mods");
             sb.AppendLine("====================================================");
             sb.AppendLine();
             sb.AppendLine($"  {conflictsByTarget.Count} method(s) are patched by both {moduleName}");
@@ -596,7 +621,7 @@ namespace HarmonyPatchScanner.Core
             sb.AppendLine();
             foreach (var conflict in sortedConflicts)
             {
-                var riskLabel = conflict.Risk == 2 ? "[HIGH]" : conflict.Risk == 1 ? "[MEDIUM]" : "[LOW]";
+                var riskLabel = conflict.Risk == 2 ? "[POTENTIAL HIGH]" : conflict.Risk == 1 ? "[POTENTIAL MEDIUM]" : "[POTENTIAL LOW]";
                 var otherMods = string.Join(", ", conflict.OtherPatches.Select(p => p.Owner).Distinct());
                 sb.AppendLine($"    {riskLabel,-8} {MethodNameFormatter.FormatMethodName(conflict.MethodKey, verbose: false)}  - also patched by: {otherMods}");
             }
@@ -610,7 +635,7 @@ namespace HarmonyPatchScanner.Core
                 var hasShortCircuit = conflict.AllPatches.Any(p => p.CanShortCircuit && p.PatchType == HarmonyPatchKind.Prefix)
                                       && conflict.AllPatches.Count(p => p.PatchType == HarmonyPatchKind.Prefix) > 1;
                 var targetsOfficial = conflict.ModulePatches.Any(p => p.TargetsOfficialCode);
-                var riskLabel = conflict.Risk == 2 ? "HIGH" : conflict.Risk == 1 ? "MEDIUM" : "LOW";
+                var riskLabel = conflict.Risk == 2 ? "POTENTIAL HIGH" : conflict.Risk == 1 ? "POTENTIAL MEDIUM" : "POTENTIAL LOW";
 
                 sb.AppendLine("----------------------------------------------------");
                 sb.AppendLine($"  Target     : {MethodNameFormatter.FormatMethodName(conflict.MethodKey, verbose: false)}{(targetsOfficial ? "  [official code]" : string.Empty)}");
@@ -621,14 +646,14 @@ namespace HarmonyPatchScanner.Core
 
                 if (hasTranspilers)
                 {
-                    sb.AppendLine("  HIGH RISK: Multiple transpilers on this method.");
+                    sb.AppendLine("  POTENTIAL HIGH RISK: Multiple transpilers on this method.");
                     sb.AppendLine("    Each transpiler sees IL already modified by the previous one.");
                     sb.AppendLine();
                 }
 
                 if (hasShortCircuit)
                 {
-                    sb.AppendLine("  SHORT-CIRCUIT RISK: A prefix returns bool - if it returns false,");
+                    sb.AppendLine("  POTENTIAL SHORT-CIRCUIT RISK: A prefix returns bool - if it returns false,");
                     sb.AppendLine("    the original method and all lower-priority prefixes are skipped.");
                     sb.AppendLine();
                 }
@@ -676,7 +701,7 @@ namespace HarmonyPatchScanner.Core
             sb.AppendLine($"    Finalizers           : {modulePatches.Count(p => p.PatchType == HarmonyPatchKind.Finalizer)}");
             sb.AppendLine($"  Short-circuit Prefixes : {modulePatches.Count(p => p.CanShortCircuit)}");
             sb.AppendLine($"  Targets Official Code  : {modulePatches.Count(p => p.TargetsOfficialCode)}");
-            sb.AppendLine($"  Conflicts              : {conflictsByTarget.Count} method(s) shared with other mods");
+            sb.AppendLine($"  Potential Conflicts    : {conflictsByTarget.Count} method(s) shared with other mods");
             sb.AppendLine();
         }
 
@@ -697,6 +722,7 @@ namespace HarmonyPatchScanner.Core
             sb.AppendLine($"    Harmony ID    : {patch.HarmonyOwner}");
             sb.AppendLine($"    Before        : {beforeStr}");
             sb.AppendLine($"    After         : {afterStr}");
+            AppendStaticFindings(sb, patch, "    ");
             sb.AppendLine();
         }
 
@@ -715,6 +741,49 @@ namespace HarmonyPatchScanner.Core
             sb.AppendLine($"        Load Pos     : {MethodNameFormatter.FormatLoadOrder(patch.LoadOrderPosition)}{scNote}");
             sb.AppendLine($"        Before       : {beforeStr}");
             sb.AppendLine($"        After        : {afterStr}");
+            AppendStaticFindings(sb, patch, "        ");
+        }
+
+        private static void AppendStaticFindings(StringBuilder sb, PatchRecord patch, string indent)
+        {
+            if (patch.StaticFindings.Count == 0)
+                return;
+
+            sb.AppendLine($"{indent}Static IL    :");
+            foreach (var finding in patch.StaticFindings)
+            {
+                sb.AppendLine($"{indent}  [{finding.Confidence}] {FormatFindingKind(finding.Kind)} - {finding.Explanation}");
+            }
+        }
+
+        private static string FormatFindingKind(StaticFindingKind kind)
+        {
+            switch (kind)
+            {
+                case StaticFindingKind.UnconditionalSkipOriginal:
+                    return "original skip";
+                case StaticFindingKind.ResultWrite:
+                    return "result write";
+                case StaticFindingKind.RefArgumentMutation:
+                    return "ref argument mutation";
+                case StaticFindingKind.PrivateFieldAccess:
+                    return "private field access";
+                case StaticFindingKind.UnreadableBody:
+                    return "unreadable body";
+                case StaticFindingKind.UnsupportedPattern:
+                    return "unsupported pattern";
+                default:
+                    return kind.ToString();
+            }
+        }
+
+        private static bool FindingMatchesPatch(StaticPatchFinding finding, PatchRecord patch)
+        {
+            return string.Equals(finding.TargetMethod, patch.TargetMethod, StringComparison.Ordinal) &&
+                   string.Equals(finding.PatchMethod, patch.PatchMethod, StringComparison.Ordinal) &&
+                   string.Equals(finding.PatchOwner, patch.Owner, StringComparison.Ordinal) &&
+                   finding.PatchKind == patch.PatchType &&
+                   finding.HarmonyIndex == patch.Index;
         }
 
         private static List<(string PatchMethod, string HintType, string ReferencedId)> GetDanglingBeforeAfterHints(

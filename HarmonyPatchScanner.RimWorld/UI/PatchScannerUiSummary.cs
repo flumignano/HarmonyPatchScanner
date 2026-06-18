@@ -27,6 +27,9 @@ namespace HarmonyPatchScanner.RimWorld.UI
             ShortCircuitPrefixes = snapshot.Patches.Count(p => p.CanShortCircuit);
             OfficialTargets = snapshot.Patches.Count(p => p.TargetsOfficialCode);
             ModCount = snapshot.Patches.Select(p => p.Owner).Distinct().Count();
+            StaticDeterministicFindings = snapshot.StaticFindings.Count(f => f.Confidence == StaticFindingConfidence.Deterministic);
+            StaticLikelyFindings = snapshot.StaticFindings.Count(f => f.Confidence == StaticFindingConfidence.Likely);
+            StaticPotentialFindings = snapshot.StaticFindings.Count(f => f.Confidence == StaticFindingConfidence.Potential);
         }
 
         public PatchScanSnapshot Snapshot { get; }
@@ -39,6 +42,9 @@ namespace HarmonyPatchScanner.RimWorld.UI
         public int ShortCircuitPrefixes { get; }
         public int OfficialTargets { get; }
         public int ModCount { get; }
+        public int StaticDeterministicFindings { get; }
+        public int StaticLikelyFindings { get; }
+        public int StaticPotentialFindings { get; }
 
         public static PatchScannerUiSummary Build(PatchScanSnapshot snapshot, IReadOnlyList<ModLoadInfo> loadOrder)
         {

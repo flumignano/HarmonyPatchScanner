@@ -8,18 +8,22 @@ namespace HarmonyPatchScanner.Core
     {
         private readonly IPatchScannerHost _host;
         private readonly HarmonyPatchScanEngine _engine;
+        private readonly StaticPatchAnalyzer _staticAnalyzer;
         private readonly PatchReportBuilder _reportBuilder;
 
         public PatchScannerService(IPatchScannerHost host)
         {
             _host = host;
             _engine = new HarmonyPatchScanEngine(host);
+            _staticAnalyzer = new StaticPatchAnalyzer();
             _reportBuilder = new PatchReportBuilder();
         }
 
         public PatchScanSnapshot Scan(PatchScannerOptions options)
         {
-            return _engine.Scan(options);
+            var snapshot = _engine.Scan(options);
+            var staticFindings = _staticAnalyzer.Analyze(snapshot);
+            return snapshot.WithStaticFindings(staticFindings);
         }
 
         public PatchExportResult ExportAllPatches(PatchScannerOptions options)
@@ -29,12 +33,14 @@ namespace HarmonyPatchScanner.Core
             var filePath = WriteReport("AllHarmonyPatches.txt", report);
             var totalPatches = snapshot.Patches.Count;
             var totalTranspilers = snapshot.Patches.Count(p => p.PatchType == HarmonyPatchKind.Transpiler);
+            var deterministicFindings = snapshot.StaticFindings.Count(f => f.Confidence == StaticFindingConfidence.Deterministic);
+            var likelyFindings = snapshot.StaticFindings.Count(f => f.Confidence == StaticFindingConfidence.Likely);
             var modCount = snapshot.Patches.Select(p => p.Owner).Distinct().Count();
 
             return Complete(
                 snapshot,
                 filePath,
-                $"Scan complete! {modCount} mods / {totalPatches} patches. Transpilers: {totalTranspilers}. Results saved to {filePath}",
+                $"Scan complete! {modCount} mods / {totalPatches} patches. Transpilers: {totalTranspilers}. Static findings: {deterministicFindings} deterministic, {likelyFindings} likely. Results saved to {filePath}",
                 PatchScannerNotificationLevel.Success);
         }
 
@@ -56,7 +62,7 @@ namespace HarmonyPatchScanner.Core
             return Complete(
                 snapshot,
                 filePath,
-                $"Conflict scan complete! {conflicts.Count} conflicts ({highRisk} high risk), {shortCircuitConflicts} short-circuit risks. Saved to {filePath}",
+                $"Conflict scan complete! {conflicts.Count} potential conflicts ({highRisk} potential high risk), {shortCircuitConflicts} potential short-circuit risks. Saved to {filePath}",
                 level);
         }
 
@@ -88,7 +94,7 @@ namespace HarmonyPatchScanner.Core
             return Complete(
                 snapshot,
                 filePath,
-                $"Module scan complete! {displayName}: {modulePatchCount} patches, {conflictCount} conflicts. Saved to {filePath}",
+                $"Module scan complete! {displayName}: {modulePatchCount} patches, {conflictCount} potential conflicts. Saved to {filePath}",
                 level);
         }
 

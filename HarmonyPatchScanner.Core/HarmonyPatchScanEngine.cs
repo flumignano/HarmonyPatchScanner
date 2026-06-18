@@ -128,6 +128,7 @@ namespace HarmonyPatchScanner.Core
                 PatchAssemblyName = assemblyName,
                 HarmonyOwner = patch.owner ?? string.Empty,
                 PatchMethod = MethodNameFormatter.GetFullPatchMethodName(patchMethod),
+                PatchMethodBase = patchMethod,
                 Index = patch.index,
                 Before = patch.before ?? Array.Empty<string>(),
                 After = patch.after ?? Array.Empty<string>(),

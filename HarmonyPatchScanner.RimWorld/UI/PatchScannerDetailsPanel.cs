@@ -56,7 +56,11 @@ namespace HarmonyPatchScanner.RimWorld.UI
             builder.AppendLine("Finalizers: " + summary.TotalFinalizers);
             builder.AppendLine("Short-circuit prefixes: " + summary.ShortCircuitPrefixes);
             builder.AppendLine("Targets official code: " + summary.OfficialTargets);
-            builder.AppendLine("Cross-mod conflicts: " + summary.Conflicts.Count);
+            builder.AppendLine("Potential cross-mod conflicts: " + summary.Conflicts.Count);
+            builder.AppendLine("Static IL findings: " +
+                               summary.StaticDeterministicFindings + " deterministic, " +
+                               summary.StaticLikelyFindings + " likely, " +
+                               summary.StaticPotentialFindings + " potential");
             builder.AppendLine();
 
             if (summary.Snapshot.Errors.Count > 0)
@@ -130,11 +134,11 @@ namespace HarmonyPatchScanner.RimWorld.UI
 
         private static void AppendTopConflicts(StringBuilder builder, System.Collections.Generic.IReadOnlyList<ConflictRecord> conflicts)
         {
-            builder.AppendLine("Highest-risk shared targets");
+            builder.AppendLine("Highest-risk potential shared targets");
 
             if (conflicts.Count == 0)
             {
-                builder.AppendLine("No cross-mod conflicts in the last scan.");
+                builder.AppendLine("No potential cross-mod conflicts in the last scan.");
                 builder.AppendLine();
                 return;
             }
@@ -142,7 +146,7 @@ namespace HarmonyPatchScanner.RimWorld.UI
             foreach (var conflict in conflicts.Take(12))
             {
                 var owners = conflict.Patches.Select(p => p.Owner).Distinct().Count();
-                builder.AppendLine("- [" + conflict.RiskLevel + "] " +
+                builder.AppendLine("- [Potential " + conflict.RiskLevel + "] " +
                                    MethodNameFormatter.FormatMethodName(conflict.MethodKey, false) +
                                    " - " + conflict.Patches.Count + " patches from " + owners + " mods");
             }
