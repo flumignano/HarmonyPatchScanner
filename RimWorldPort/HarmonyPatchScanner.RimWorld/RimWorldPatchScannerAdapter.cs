@@ -92,7 +92,7 @@ namespace HarmonyPatchScanner.RimWorld
         {
             var directory = Path.Combine(GenFilePaths.ConfigFolderPath, "HarmonyPatchScanner", "logs");
             Directory.CreateDirectory(directory);
-            return directory;
+            return NormalizePath(directory);
         }
 
         public void Notify(string message, PatchScannerNotificationLevel level)
@@ -105,10 +105,13 @@ namespace HarmonyPatchScanner.RimWorld
 
             if (level == PatchScannerNotificationLevel.Error)
                 Log.Error(message);
-            else if (level == PatchScannerNotificationLevel.Warning)
-                Log.Warning(message);
             else
                 Log.Message(message);
+        }
+
+        private static string NormalizePath(string path)
+        {
+            return Path.GetFullPath(path).Replace('\\', '/');
         }
 
         private static List<ModLoadInfo> BuildLoadOrder()

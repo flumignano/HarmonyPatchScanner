@@ -18,6 +18,7 @@ namespace HarmonyPatchScanner.RimWorld.UI
         private readonly string logDirectory;
 
         private PatchScanSnapshot? snapshot;
+        private PatchScannerUiSummary? uiSummary;
         private ModLoadInfo? selectedModule;
         private Vector2 moduleScroll;
         private Vector2 detailsScroll;
@@ -106,14 +107,14 @@ namespace HarmonyPatchScanner.RimWorld.UI
             PatchScannerModuleListPanel.Draw(
                 moduleListRect,
                 loadOrder,
-                snapshot,
+                uiSummary,
                 selectedModule,
                 searchText,
                 OnModuleSelected,
                 ref moduleScroll,
                 ref searchText);
 
-            PatchScannerDetailsPanel.Draw(detailsRect, snapshot, selectedModule, currentReport, ref detailsScroll);
+            PatchScannerDetailsPanel.Draw(detailsRect, uiSummary, selectedModule, currentReport, ref detailsScroll);
 
             PatchScannerActionsPanel.Draw(
                 actionsRect,
@@ -195,6 +196,7 @@ namespace HarmonyPatchScanner.RimWorld.UI
             {
                 var result = export();
                 snapshot = result.Snapshot;
+                uiSummary = snapshot == null ? null : PatchScannerUiSummary.Build(snapshot, loadOrder);
                 lastExportPath = result.FilePath;
                 statusText = result.Message;
                 currentReport = reportName + " completed at " + DateTime.Now.ToString("HH:mm:ss") + ".";
@@ -211,6 +213,7 @@ namespace HarmonyPatchScanner.RimWorld.UI
         private void ClearResults()
         {
             snapshot = null;
+            uiSummary = null;
             lastExportPath = string.Empty;
             currentReport = "No scan has been run.";
             statusText = "Cleared.";

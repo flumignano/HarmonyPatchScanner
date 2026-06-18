@@ -49,11 +49,9 @@ namespace HarmonyPatchScanner.Core
 
             var report = _reportBuilder.BuildConflictReport(snapshot, options);
             var filePath = WriteReport("DuplicateHarmonyPatches.txt", report);
-            var level = highRisk > 0
-                ? PatchScannerNotificationLevel.Error
-                : conflicts.Count > 0
-                    ? PatchScannerNotificationLevel.Warning
-                    : PatchScannerNotificationLevel.Success;
+            var level = conflicts.Count > 0
+                ? PatchScannerNotificationLevel.Warning
+                : PatchScannerNotificationLevel.Success;
 
             return Complete(
                 snapshot,
@@ -100,7 +98,12 @@ namespace HarmonyPatchScanner.Core
             Directory.CreateDirectory(logDirectory);
             var filePath = Path.Combine(logDirectory, fileName);
             File.WriteAllText(filePath, report);
-            return filePath;
+            return NormalizePath(filePath);
+        }
+
+        private static string NormalizePath(string path)
+        {
+            return Path.GetFullPath(path).Replace('\\', '/');
         }
 
         private PatchExportResult Complete(

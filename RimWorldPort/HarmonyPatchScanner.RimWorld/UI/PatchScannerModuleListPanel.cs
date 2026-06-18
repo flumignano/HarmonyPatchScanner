@@ -13,11 +13,13 @@ namespace HarmonyPatchScanner.RimWorld.UI
         private const float RowGap = 6f;
         private const float RowHorizontalPadding = 8f;
         private const float RowTopPadding = 7f;
+        private const float RowBottomPadding = 8f;
+        private const float RowLineGap = 2f;
 
         public static void Draw(
             Rect rect,
             IReadOnlyList<ModLoadInfo> loadOrder,
-            PatchScanSnapshot? snapshot,
+            PatchScannerUiSummary? summary,
             ModLoadInfo? selectedModule,
             string searchText,
             Action<ModLoadInfo> onSelect,
@@ -35,17 +37,20 @@ namespace HarmonyPatchScanner.RimWorld.UI
             var listRect = new Rect(inner.x, searchRect.yMax + 8f, inner.width, inner.yMax - searchRect.yMax - 8f);
             var modules = loadOrder.Where(mod => MatchesSearch(mod, searchText)).ToList();
             var viewWidth = listRect.width - 16f;
-            var viewHeight = Math.Max(listRect.height, modules.Count * (PatchScannerUiConstants.RowHeight + RowGap));
+            var rowHeights = modules.Select(module => CalculateRowHeight(module, summary, viewWidth)).ToList();
+            var viewHeight = Math.Max(listRect.height, TotalRowHeight(rowHeights));
             var viewRect = new Rect(0f, 0f, viewWidth, viewHeight);
 
             Widgets.BeginScrollView(listRect, ref scrollPosition, viewRect);
 
             var y = 0f;
-            foreach (var module in modules)
+            for (var i = 0; i < modules.Count; i++)
             {
-                var row = new Rect(0f, y, viewRect.width, PatchScannerUiConstants.RowHeight);
-                DrawModuleRow(row, module, snapshot, selectedModule, onSelect);
-                y += PatchScannerUiConstants.RowHeight + RowGap;
+                var module = modules[i];
+                var rowHeight = rowHeights[i];
+                var row = new Rect(0f, y, viewRect.width, rowHeight);
+                DrawModuleRow(row, module, summary, selectedModule, onSelect);
+                y += rowHeight + RowGap;
             }
 
             if (modules.Count == 0)
@@ -65,10 +70,30 @@ namespace HarmonyPatchScanner.RimWorld.UI
                    module.AssemblyNames.Any(assembly => assembly.ToLowerInvariant().Contains(term));
         }
 
+        private static float TotalRowHeight(IReadOnlyList<float> rowHeights)
+        {
+            if (rowHeights.Count == 0)
+                return 0f;
+
+            return rowHeights.Sum() + (rowHeights.Count - 1) * RowGap;
+        }
+
+        private static float CalculateRowHeight(ModLoadInfo module, PatchScannerUiSummary? summary, float rowWidth)
+        {
+            var textWidth = rowWidth - RowHorizontalPadding * 2f;
+            var titleHeight = Text.CalcHeight(TitleText(module), textWidth);
+            var metaHeight = Text.CalcHeight(ModuleTags(module), textWidth);
+            var countHeight = Text.CalcHeight(BuildPatchCounts(module, summary), textWidth);
+
+            return Math.Max(
+                PatchScannerUiConstants.RowHeight,
+                RowTopPadding + titleHeight + RowLineGap + metaHeight + RowLineGap + countHeight + RowBottomPadding);
+        }
+
         private static void DrawModuleRow(
             Rect rect,
             ModLoadInfo module,
-            PatchScanSnapshot? snapshot,
+            PatchScannerUiSummary? summary,
             ModLoadInfo? selectedModule,
             Action<ModLoadInfo> onSelect)
         {
@@ -84,25 +109,35 @@ namespace HarmonyPatchScanner.RimWorld.UI
             if (Widgets.ButtonInvisible(rect))
                 onSelect(module);
 
+            var textWidth = rect.width - RowHorizontalPadding * 2f;
+            var title = TitleText(module);
+            var meta = ModuleTags(module);
+            var patchCounts = BuildPatchCounts(module, summary);
+
             var titleRect = new Rect(
                 rect.x + RowHorizontalPadding,
                 rect.y + RowTopPadding,
-                rect.width - RowHorizontalPadding * 2f,
-                PatchScannerUiConstants.TextLineHeight);
+                textWidth,
+                Text.CalcHeight(title, textWidth));
             var metaRect = new Rect(
                 titleRect.x,
-                titleRect.yMax + 2f,
-                titleRect.width,
-                PatchScannerUiConstants.TextLineHeight);
+                titleRect.yMax + RowLineGap,
+                textWidth,
+                Text.CalcHeight(meta, textWidth));
             var countRect = new Rect(
                 titleRect.x,
-                metaRect.yMax + 2f,
-                titleRect.width,
-                PatchScannerUiConstants.TextLineHeight);
+                metaRect.yMax + RowLineGap,
+                textWidth,
+                Text.CalcHeight(patchCounts, textWidth));
 
-            Widgets.Label(titleRect, "#" + module.Position + " " + module.DisplayName);
-            Widgets.Label(metaRect, ModuleTags(module));
-            Widgets.Label(countRect, BuildPatchCounts(module, snapshot));
+            Widgets.Label(titleRect, title);
+            Widgets.Label(metaRect, meta);
+            Widgets.Label(countRect, patchCounts);
+        }
+
+        private static string TitleText(ModLoadInfo module)
+        {
+            return "#" + module.Position + " " + module.DisplayName;
         }
 
         private static string ModuleTags(ModLoadInfo module)
@@ -115,35 +150,17 @@ namespace HarmonyPatchScanner.RimWorld.UI
             return tags;
         }
 
-        private static string BuildPatchCounts(ModLoadInfo module, PatchScanSnapshot? snapshot)
+        private static string BuildPatchCounts(ModLoadInfo module, PatchScannerUiSummary? summary)
         {
-            if (snapshot == null)
+            if (summary == null)
                 return "No scan data yet.";
 
-            var patches = snapshot.Patches.Where(p => IsPatchFromModule(p, module)).ToList();
-            if (patches.Count == 0)
+            var moduleSummary = summary.ForModule(module);
+            if (moduleSummary == null || moduleSummary.PatchCount == 0)
                 return "0 patches";
 
-            var targets = patches.Select(p => p.TargetMethod).Distinct().Count();
-            var conflicts = snapshot.Patches
-                .GroupBy(p => p.TargetMethod)
-                .Count(group => group.Any(p => IsPatchFromModule(p, module)) &&
-                                group.Select(p => p.Owner).Distinct().Count() > 1);
-
-            return patches.Count + " patches on " + targets + " methods, " + conflicts + " shared target(s)";
-        }
-
-        private static bool IsPatchFromModule(PatchRecord patch, ModLoadInfo module)
-        {
-            if (!string.IsNullOrEmpty(patch.OwnerModId) &&
-                string.Equals(patch.OwnerModId, module.ModId, StringComparison.OrdinalIgnoreCase))
-            {
-                return true;
-            }
-
-            var patchAssemblyName = patch.PatchAssemblyName;
-            return !string.IsNullOrEmpty(patchAssemblyName) &&
-                   module.AssemblyNames.Contains(patchAssemblyName!, StringComparer.OrdinalIgnoreCase);
+            return moduleSummary.PatchCount + " patches on " + moduleSummary.TargetMethodCount +
+                   " methods, " + moduleSummary.SharedTargetCount + " shared target(s)";
         }
     }
 }

@@ -5,6 +5,7 @@
     <Nullable>enable</Nullable>
     <AssemblyName>HarmonyPatchScanner.Core</AssemblyName>
     <RootNamespace>HarmonyPatchScanner.Core</RootNamespace>
+    <NuGetAudit>false</NuGetAudit>
   </PropertyGroup>
 
   <ItemGroup>
