@@ -30,8 +30,6 @@ The player-facing mod package is:
 - `About`
 - `1.6`
 
-Local deployment helpers, source files, screenshots, and build artifacts are not part of the Workshop upload.
-
 ## Usage
 
 Open RimWorld, enable Harmony and this mod, then go to:
