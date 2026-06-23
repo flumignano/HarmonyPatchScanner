@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LanguageData>
+  <!-- Mod settings -->
+  <HPS_ModName>Harmony Patch Scanner</HPS_ModName>
+  <HPS_ExcludeLifecycleMethods>Exclude common lifecycle methods</HPS_ExcludeLifecycleMethods>
+  <HPS_ExcludeLifecycleMethodsTooltip>Hides routine startup, loading, settings, and save/load patches from the reports.</HPS_ExcludeLifecycleMethodsTooltip>
+  <HPS_ExcludeCommunityLibraries>Exclude community libraries</HPS_ExcludeCommunityLibraries>
+  <HPS_ExcludeCommunityLibrariesTooltip>Hides common framework/library mods such as Harmony and HugsLib when possible.</HPS_ExcludeCommunityLibrariesTooltip>
+  <HPS_OpenScanner>Open Harmony Patch Scanner</HPS_OpenScanner>
+  <HPS_ReportsLocation>Reports are written to Config/HarmonyPatchScanner/logs.</HPS_ReportsLocation>
+  <HPS_ExportedFiles>Exported files: AllHarmonyPatches.txt, DuplicateHarmonyPatches.txt, and ModuleScan_&lt;mod&gt;.txt.</HPS_ExportedFiles>
+
+  <!-- Shared labels -->
+  <HPS_Actions>Actions</HPS_Actions>
+  <HPS_Filters>Filters</HPS_Filters>
+  <HPS_SelectedMod>Selected mod</HPS_SelectedMod>
+  <HPS_NoModSelected>No mod selected.</HPS_NoModSelected>
+  <HPS_ExportFolder>Export folder</HPS_ExportFolder>
+  <HPS_LastExportedFile>Last exported file</HPS_LastExportedFile>
+  <HPS_NoReportExported>No report exported yet.</HPS_NoReportExported>
+  <HPS_CopyLastLogPath>Copy last log path</HPS_CopyLastLogPath>
+  <HPS_ReportFiles>Report files</HPS_ReportFiles>
+  <HPS_CommonYes>yes</HPS_CommonYes>
+  <HPS_CommonNo>no</HPS_CommonNo>
+  <HPS_CommonNone>(none)</HPS_CommonNone>
+  <HPS_CommonUnknown>Unknown</HPS_CommonUnknown>
+
+  <!-- Scanner actions -->
+  <HPS_ScanAll>Scan all Harmony patches</HPS_ScanAll>
+  <HPS_FindConflicts>Find duplicate/conflicting patches</HPS_FindConflicts>
+  <HPS_ScanSelectedMod>Scan selected mod</HPS_ScanSelectedMod>
+  <HPS_ViewStaticFindings>View static IL findings</HPS_ViewStaticFindings>
+  <HPS_ScanAllShort>Scan all</HPS_ScanAllShort>
+  <HPS_FindConflictsShort>Find conflicts</HPS_FindConflictsShort>
+  <HPS_ScanModShort>Scan mod</HPS_ScanModShort>
+  <HPS_Clear>Clear</HPS_Clear>
+
+  <!-- Loaded mod list -->
+  <HPS_LoadedMods>Loaded mods</HPS_LoadedMods>
+  <HPS_NoModsMatchSearch>No loaded mods match the search filter.</HPS_NoModsMatchSearch>
+  <HPS_TagOfficial>[official]</HPS_TagOfficial>
+  <HPS_TagCommunityLibrary>[community lib]</HPS_TagCommunityLibrary>
+  <HPS_NoScanData>No scan data yet.</HPS_NoScanData>
+  <HPS_PatchCount>{0} patches</HPS_PatchCount>
+  <HPS_ModulePatchCounts>{0} patches on {1} methods, {2} shared target(s)</HPS_ModulePatchCounts>
+
+  <!-- Status text -->
+  <HPS_StatusReady>Ready.</HPS_StatusReady>
+  <HPS_StatusNoScanRun>No scan has been run.</HPS_StatusNoScanRun>
+  <HPS_StatusSelectedMod>Selected {0}.</HPS_StatusSelectedMod>
+  <HPS_StatusSelectModFirst>Select a mod first.</HPS_StatusSelectModFirst>
+  <HPS_StatusExportSaved>{0} complete. Saved to {1}.</HPS_StatusExportSaved>
+  <HPS_StatusExportSavedPath>{0} complete. Saved to {1}.</HPS_StatusExportSavedPath>
+  <HPS_StatusReportCompletedAt>{0} completed at {1}.</HPS_StatusReportCompletedAt>
+  <HPS_StatusReportFailed>{0} failed: {1}</HPS_StatusReportFailed>
+  <HPS_StatusCleared>Cleared.</HPS_StatusCleared>
+  <HPS_StatusNoLogPath>No exported log path to copy yet.</HPS_StatusNoLogPath>
+  <HPS_StatusCopiedLogPath>Copied log path to clipboard.</HPS_StatusCopiedLogPath>
+  <HPS_StatusScanBeforeStaticFindings>Run a scan before viewing static IL findings.</HPS_StatusScanBeforeStaticFindings>
+  <HPS_StatusNoActionableStaticFindings>No deterministic or likely static IL findings in the last scan.</HPS_StatusNoActionableStaticFindings>
+  <HPS_ReportNameFullPatchScan>Full patch scan</HPS_ReportNameFullPatchScan>
+  <HPS_ReportNameConflictScan>Conflict scan</HPS_ReportNameConflictScan>
+  <HPS_ReportNameModuleScan>Module scan</HPS_ReportNameModuleScan>
+  <HPS_NotificationScanComplete>Scan complete! {0} mods / {1} patches. Transpilers: {2}. Static findings: {3} deterministic, {4} likely. Results saved to {5}</HPS_NotificationScanComplete>
+  <HPS_NotificationConflictScanComplete>Conflict scan complete! {0} potential conflicts ({1} potential high risk), {2} potential short-circuit risks. Saved to {3}</HPS_NotificationConflictScanComplete>
+  <HPS_NotificationModuleScanComplete>Module scan complete! {0}: {1} patches, {2} potential conflicts. Saved to {3}</HPS_NotificationModuleScanComplete>
+
+  <!-- Details panel -->
+  <HPS_DetailsNoScanInstructions>Use Scan all, Find conflicts, or Scan mod to export Harmony patch reports for the current mod list.</HPS_DetailsNoScanInstructions>
+  <HPS_DetailsNoScanLoadOrderHint>The selected mod panel is still useful before a scan because it shows RimWorld's active load order.</HPS_DetailsNoScanLoadOrderHint>
+  <HPS_DetailsScanSummary>Scan summary</HPS_DetailsScanSummary>
+  <HPS_DetailsScanTime>Scan time: {0}</HPS_DetailsScanTime>
+  <HPS_DetailsPatchedMethods>Patched methods seen by Harmony: {0}</HPS_DetailsPatchedMethods>
+  <HPS_DetailsModsWithPatches>Mods with patches: {0}</HPS_DetailsModsWithPatches>
+  <HPS_DetailsTotalPatches>Total patches: {0}</HPS_DetailsTotalPatches>
+  <HPS_DetailsPrefixes>Prefixes: {0}</HPS_DetailsPrefixes>
+  <HPS_DetailsPostfixes>Postfixes: {0}</HPS_DetailsPostfixes>
+  <HPS_DetailsTranspilers>Transpilers: {0}</HPS_DetailsTranspilers>
+  <HPS_DetailsFinalizers>Finalizers: {0}</HPS_DetailsFinalizers>
+  <HPS_DetailsShortCircuitPrefixes>Short-circuit prefixes: {0}</HPS_DetailsShortCircuitPrefixes>
+  <HPS_DetailsOfficialTargets>Targets official code: {0}</HPS_DetailsOfficialTargets>
+  <HPS_DetailsPotentialConflicts>Potential cross-mod conflicts: {0}</HPS_DetailsPotentialConflicts>
+  <HPS_DetailsStaticFindings>Static IL findings: {0} deterministic, {1} likely</HPS_DetailsStaticFindings>
+  <HPS_DetailsPotentialStaticNotes>Potential static notes: {0} in exported reports</HPS_DetailsPotentialStaticNotes>
+  <HPS_DetailsScanWarnings>Scan warnings</HPS_DetailsScanWarnings>
+  <HPS_DetailsPackageId>Package ID: {0}</HPS_DetailsPackageId>
+  <HPS_DetailsAssemblies>Assemblies: {0}</HPS_DetailsAssemblies>
+  <HPS_DetailsOfficial>Official: {0}</HPS_DetailsOfficial>
+  <HPS_DetailsCommunityLibrary>Community library: {0}</HPS_DetailsCommunityLibrary>
+  <HPS_DetailsPatchesLastScan>Patches in last scan: {0}</HPS_DetailsPatchesLastScan>
+  <HPS_DetailsTargetMethods>Target methods: {0}</HPS_DetailsTargetMethods>
+  <HPS_DetailsSharedTargets>Shared targets: {0}</HPS_DetailsSharedTargets>
+  <HPS_DetailsPrefixCount>  Prefix: {0}</HPS_DetailsPrefixCount>
+  <HPS_DetailsFinalizerCount>  Finalizer: {0}</HPS_DetailsFinalizerCount>
+  <HPS_DetailsTranspilerCount>  Transpiler: {0}</HPS_DetailsTranspilerCount>
+  <HPS_DetailsPostfixCount>  Postfix: {0}</HPS_DetailsPostfixCount>
+  <HPS_DetailsSelectedModSharedTargets>Selected mod shared targets</HPS_DetailsSelectedModSharedTargets>
+  <HPS_DetailsSharedTargetRow>- {0} with {1}</HPS_DetailsSharedTargetRow>
+  <HPS_DetailsMoreModuleTargets>- ... {0} more in the exported module report</HPS_DetailsMoreModuleTargets>
+  <HPS_DetailsHighestRiskTargets>Highest-risk potential shared targets</HPS_DetailsHighestRiskTargets>
+  <HPS_DetailsNoConflicts>No potential cross-mod conflicts in the last scan.</HPS_DetailsNoConflicts>
+  <HPS_DetailsConflictRow>- [Potential {0}] {1} - {2} patches from {3} mods</HPS_DetailsConflictRow>
+  <HPS_DetailsMoreConflicts>- ... {0} more in DuplicateHarmonyPatches.txt</HPS_DetailsMoreConflicts>
+  <HPS_DetailsTopPatchOwners>Top patch owners</HPS_DetailsTopPatchOwners>
+  <HPS_DetailsPatchOwnerRow>- {0}: {1} patches</HPS_DetailsPatchOwnerRow>
+  <HPS_RiskHigh>High</HPS_RiskHigh>
+  <HPS_RiskMedium>Medium</HPS_RiskMedium>
+  <HPS_RiskLow>Low</HPS_RiskLow>
+
+  <!-- Static IL findings window -->
+  <HPS_StaticFindingsTitle>Static IL Findings</HPS_StaticFindingsTitle>
+  <HPS_StaticFindingsPassiveOnly>These findings come from passive IL inspection only.</HPS_StaticFindingsPassiveOnly>
+  <HPS_StaticFindingsNoExecution>The analyzer does not execute patch methods or replay transpilers.</HPS_StaticFindingsNoExecution>
+  <HPS_StaticFindingsShownConfidence>This window shows deterministic and likely findings.</HPS_StaticFindingsShownConfidence>
+  <HPS_StaticFindingsPotentialInReports>Potential notes remain in the exported reports.</HPS_StaticFindingsPotentialInReports>
+  <HPS_StaticFindingsShownCount>Shown: {0} / Total static notes: {1}</HPS_StaticFindingsShownCount>
+  <HPS_StaticFindingsGroup>{0} findings ({1})</HPS_StaticFindingsGroup>
+  <HPS_StaticFindingsOwner>Owner   : {0}</HPS_StaticFindingsOwner>
+  <HPS_StaticFindingsKind>Kind    : {0}</HPS_StaticFindingsKind>
+  <HPS_StaticFindingsPatch>Patch   : {0}</HPS_StaticFindingsPatch>
+  <HPS_StaticFindingsTarget>Target  : {0}</HPS_StaticFindingsTarget>
+  <HPS_StaticFindingsWhy>Why     : {0}</HPS_StaticFindingsWhy>
+  <HPS_StaticKindUnconditionalSkip>Deterministic original skip</HPS_StaticKindUnconditionalSkip>
+  <HPS_StaticKindResultWrite>Result write interaction</HPS_StaticKindResultWrite>
+  <HPS_StaticKindRefArgumentMutation>Ref argument mutation interaction</HPS_StaticKindRefArgumentMutation>
+  <HPS_StaticKindPrivateFieldAccess>Private field access</HPS_StaticKindPrivateFieldAccess>
+  <HPS_StaticKindUnreadableBody>Unreadable patch body</HPS_StaticKindUnreadableBody>
+  <HPS_StaticKindUnsupportedPattern>Unsupported IL pattern</HPS_StaticKindUnsupportedPattern>
+  <HPS_ConfidenceDeterministic>Deterministic</HPS_ConfidenceDeterministic>
+  <HPS_ConfidenceObserved>Observed</HPS_ConfidenceObserved>
+  <HPS_ConfidenceLikely>Likely</HPS_ConfidenceLikely>
+  <HPS_ConfidencePotential>Potential</HPS_ConfidencePotential>
+</LanguageData>

@@ -16,7 +16,7 @@ namespace HarmonyPatchScanner.RimWorld
 
         public override string SettingsCategory()
         {
-            return "Harmony Patch Scanner";
+            return "HPS_ModName".Translate();
         }
 
         public override void DoSettingsWindowContents(Rect inRect)
@@ -24,29 +24,29 @@ namespace HarmonyPatchScanner.RimWorld
             var listing = new Listing_Standard();
             listing.Begin(inRect);
 
-            listing.Label("Harmony Patch Scanner");
+            listing.Label("HPS_ModName".Translate());
             listing.Gap();
 
             listing.CheckboxLabeled(
-                "Exclude common lifecycle methods",
+                "HPS_ExcludeLifecycleMethods".Translate(),
                 ref settings.ExcludeCommonLifecycleMethods,
-                "Hides routine startup, loading, settings, and save/load patches from the reports.");
+                "HPS_ExcludeLifecycleMethodsTooltip".Translate());
 
             listing.CheckboxLabeled(
-                "Exclude community libraries",
+                "HPS_ExcludeCommunityLibraries".Translate(),
                 ref settings.ExcludeCommunityLibraries,
-                "Hides common framework/library mods such as Harmony and HugsLib when possible.");
+                "HPS_ExcludeCommunityLibrariesTooltip".Translate());
 
             listing.Gap();
 
-            if (listing.ButtonText("Open Harmony Patch Scanner"))
+            if (listing.ButtonText("HPS_OpenScanner".Translate()))
             {
                 Find.WindowStack.Add(new Dialog_HarmonyPatchScanner(settings));
             }
 
             listing.GapLine();
-            listing.Label("Reports are written to Config/HarmonyPatchScanner/logs.");
-            listing.Label("Exported files: AllHarmonyPatches.txt, DuplicateHarmonyPatches.txt, and ModuleScan_<mod>.txt.");
+            listing.Label("HPS_ReportsLocation".Translate());
+            listing.Label("HPS_ExportedFiles".Translate());
 
             listing.End();
         }

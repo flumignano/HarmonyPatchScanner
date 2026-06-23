@@ -29,7 +29,7 @@ namespace HarmonyPatchScanner.RimWorld.UI
         public override void DoWindowContents(Rect inRect)
         {
             Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, 34f), "Static IL Findings");
+            Widgets.Label(new Rect(inRect.x, inRect.y, inRect.width, 34f), "HPS_StaticFindingsTitle".Translate());
             Text.Font = GameFont.Small;
 
             var bodyRect = new Rect(inRect.x, inRect.y + 42f, inRect.width, inRect.height - 42f);
@@ -51,11 +51,11 @@ namespace HarmonyPatchScanner.RimWorld.UI
 
             // Keep the explanation window read-only: the scan already happened, and this
             // text only explains actionable passive findings attached to that snapshot.
-            builder.AppendLine("These findings come from passive IL inspection only.");
-            builder.AppendLine("The analyzer does not execute patch methods or replay transpilers.");
-            builder.AppendLine("This window shows deterministic and likely findings.");
-            builder.AppendLine("Potential notes remain in the exported reports.");
-            builder.AppendLine("Shown: " + findings.Count + " / Total static notes: " + totalFindingCount);
+            builder.AppendLine("HPS_StaticFindingsPassiveOnly".Translate());
+            builder.AppendLine("HPS_StaticFindingsNoExecution".Translate());
+            builder.AppendLine("HPS_StaticFindingsShownConfidence".Translate());
+            builder.AppendLine("HPS_StaticFindingsPotentialInReports".Translate());
+            builder.AppendLine("HPS_StaticFindingsShownCount".Translate(findings.Count, totalFindingCount));
             builder.AppendLine();
 
             foreach (var confidenceGroup in findings
@@ -64,16 +64,18 @@ namespace HarmonyPatchScanner.RimWorld.UI
                          .ThenBy(f => f.TargetMethod)
                          .GroupBy(f => f.Confidence))
             {
-                builder.AppendLine(confidenceGroup.Key + " findings (" + confidenceGroup.Count() + ")");
+                builder.AppendLine("HPS_StaticFindingsGroup".Translate(
+                    TranslateConfidence(confidenceGroup.Key),
+                    confidenceGroup.Count()));
                 builder.AppendLine("----------------------------------------------------");
 
                 foreach (var finding in confidenceGroup)
                 {
-                    builder.AppendLine("Owner   : " + finding.PatchOwner);
-                    builder.AppendLine("Kind    : " + FormatFindingKind(finding.Kind));
-                    builder.AppendLine("Patch   : " + MethodNameFormatter.FormatMethodName(finding.PatchMethod, false));
-                    builder.AppendLine("Target  : " + MethodNameFormatter.FormatMethodName(finding.TargetMethod, false));
-                    builder.AppendLine("Why     : " + finding.Explanation);
+                    builder.AppendLine("HPS_StaticFindingsOwner".Translate(finding.PatchOwner));
+                    builder.AppendLine("HPS_StaticFindingsKind".Translate(FormatFindingKind(finding.Kind)));
+                    builder.AppendLine("HPS_StaticFindingsPatch".Translate(MethodNameFormatter.FormatMethodName(finding.PatchMethod, false)));
+                    builder.AppendLine("HPS_StaticFindingsTarget".Translate(MethodNameFormatter.FormatMethodName(finding.TargetMethod, false)));
+                    builder.AppendLine("HPS_StaticFindingsWhy".Translate(finding.Explanation));
                     builder.AppendLine();
                 }
 
@@ -88,19 +90,34 @@ namespace HarmonyPatchScanner.RimWorld.UI
             switch (kind)
             {
                 case StaticFindingKind.UnconditionalSkipOriginal:
-                    return "Deterministic original skip";
+                    return "HPS_StaticKindUnconditionalSkip".Translate();
                 case StaticFindingKind.ResultWrite:
-                    return "Result write interaction";
+                    return "HPS_StaticKindResultWrite".Translate();
                 case StaticFindingKind.RefArgumentMutation:
-                    return "Ref argument mutation interaction";
+                    return "HPS_StaticKindRefArgumentMutation".Translate();
                 case StaticFindingKind.PrivateFieldAccess:
-                    return "Private field access";
+                    return "HPS_StaticKindPrivateFieldAccess".Translate();
                 case StaticFindingKind.UnreadableBody:
-                    return "Unreadable patch body";
+                    return "HPS_StaticKindUnreadableBody".Translate();
                 case StaticFindingKind.UnsupportedPattern:
-                    return "Unsupported IL pattern";
+                    return "HPS_StaticKindUnsupportedPattern".Translate();
                 default:
                     return kind.ToString();
+            }
+        }
+
+        private static string TranslateConfidence(StaticFindingConfidence confidence)
+        {
+            switch (confidence)
+            {
+                case StaticFindingConfidence.Deterministic:
+                    return "HPS_ConfidenceDeterministic".Translate();
+                case StaticFindingConfidence.Observed:
+                    return "HPS_ConfidenceObserved".Translate();
+                case StaticFindingConfidence.Likely:
+                    return "HPS_ConfidenceLikely".Translate();
+                default:
+                    return "HPS_ConfidencePotential".Translate();
             }
         }
     }

@@ -66,7 +66,7 @@ namespace HarmonyPatchScanner.RimWorld
                 return $"{mod.DisplayName} ({assemblyName})";
             }
 
-            return assemblyName ?? harmonyOwner ?? "Unknown";
+            return assemblyName ?? harmonyOwner ?? "HPS_CommonUnknown".Translate();
         }
 
         public bool IsCommunityLibrary(string? modId, string? assemblyName)
@@ -93,6 +93,14 @@ namespace HarmonyPatchScanner.RimWorld
             var directory = Path.Combine(GenFilePaths.ConfigFolderPath, "HarmonyPatchScanner", "logs");
             Directory.CreateDirectory(directory);
             return NormalizePath(directory);
+        }
+
+        public string Translate(string key, params object[] arguments)
+        {
+            var namedArguments = arguments
+                .Select(argument => new NamedArgument(argument, null))
+                .ToArray();
+            return key.Translate(namedArguments);
         }
 
         public void Notify(string message, PatchScannerNotificationLevel level)
@@ -171,7 +179,7 @@ namespace HarmonyPatchScanner.RimWorld
                 return value!;
 
             var displayName = mod.Name;
-            return string.IsNullOrWhiteSpace(displayName) ? "Unknown" : displayName!;
+            return string.IsNullOrWhiteSpace(displayName) ? "HPS_CommonUnknown".Translate() : displayName!;
         }
 
         private static bool IsOfficialPackage(string packageId, IReadOnlyCollection<string> assemblies)

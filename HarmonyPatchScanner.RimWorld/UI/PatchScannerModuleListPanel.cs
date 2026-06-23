@@ -30,7 +30,7 @@ namespace HarmonyPatchScanner.RimWorld.UI
             Widgets.DrawMenuSection(rect);
             var inner = rect.ContractedBy(8f);
 
-            Widgets.Label(new Rect(inner.x, inner.y, inner.width, PatchScannerUiConstants.TextLineHeight), "Loaded mods");
+            Widgets.Label(new Rect(inner.x, inner.y, inner.width, PatchScannerUiConstants.TextLineHeight), "HPS_LoadedMods".Translate());
 
             var searchRect = new Rect(inner.x, inner.y + PatchScannerUiConstants.TextLineHeight + 4f, inner.width, PatchScannerUiConstants.TextFieldHeight);
             mutableSearchText = Widgets.TextField(searchRect, mutableSearchText ?? string.Empty);
@@ -58,7 +58,7 @@ namespace HarmonyPatchScanner.RimWorld.UI
             }
 
             if (layout.Rows.Count == 0)
-                Widgets.Label(new Rect(0f, 0f, viewRect.width, 60f), "No loaded mods match the search filter.");
+                Widgets.Label(new Rect(0f, 0f, viewRect.width, 60f), "HPS_NoModsMatchSearch".Translate());
 
             Widgets.EndScrollView();
         }
@@ -181,23 +181,25 @@ namespace HarmonyPatchScanner.RimWorld.UI
         {
             var tags = module.ModId;
             if (module.IsOfficial)
-                tags += "  [official]";
+                tags += "  " + "HPS_TagOfficial".Translate();
             if (module.IsCommunityLibrary)
-                tags += "  [community lib]";
+                tags += "  " + "HPS_TagCommunityLibrary".Translate();
             return tags;
         }
 
         private static string BuildPatchCounts(ModLoadInfo module, PatchScannerUiSummary? summary)
         {
             if (summary == null)
-                return "No scan data yet.";
+                return "HPS_NoScanData".Translate();
 
             var moduleSummary = summary.ForModule(module);
             if (moduleSummary == null || moduleSummary.PatchCount == 0)
-                return "0 patches";
+                return "HPS_PatchCount".Translate(0);
 
-            return moduleSummary.PatchCount + " patches on " + moduleSummary.TargetMethodCount +
-                   " methods, " + moduleSummary.SharedTargetCount + " shared target(s)";
+            return "HPS_ModulePatchCounts".Translate(
+                moduleSummary.PatchCount,
+                moduleSummary.TargetMethodCount,
+                moduleSummary.SharedTargetCount);
         }
 
         private sealed class ModuleListLayout

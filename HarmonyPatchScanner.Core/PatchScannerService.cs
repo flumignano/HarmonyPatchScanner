@@ -40,7 +40,14 @@ namespace HarmonyPatchScanner.Core
             return Complete(
                 snapshot,
                 filePath,
-                $"Scan complete! {modCount} mods / {totalPatches} patches. Transpilers: {totalTranspilers}. Static findings: {deterministicFindings} deterministic, {likelyFindings} likely. Results saved to {filePath}",
+                _host.Translate(
+                    "HPS_NotificationScanComplete",
+                    modCount,
+                    totalPatches,
+                    totalTranspilers,
+                    deterministicFindings,
+                    likelyFindings,
+                    filePath),
                 PatchScannerNotificationLevel.Success);
         }
 
@@ -62,7 +69,12 @@ namespace HarmonyPatchScanner.Core
             return Complete(
                 snapshot,
                 filePath,
-                $"Conflict scan complete! {conflicts.Count} potential conflicts ({highRisk} potential high risk), {shortCircuitConflicts} potential short-circuit risks. Saved to {filePath}",
+                _host.Translate(
+                    "HPS_NotificationConflictScanComplete",
+                    conflicts.Count,
+                    highRisk,
+                    shortCircuitConflicts,
+                    filePath),
                 level);
         }
 
@@ -94,7 +106,12 @@ namespace HarmonyPatchScanner.Core
             return Complete(
                 snapshot,
                 filePath,
-                $"Module scan complete! {displayName}: {modulePatchCount} patches, {conflictCount} potential conflicts. Saved to {filePath}",
+                _host.Translate(
+                    "HPS_NotificationModuleScanComplete",
+                    displayName,
+                    modulePatchCount,
+                    conflictCount,
+                    filePath),
                 level);
         }
 

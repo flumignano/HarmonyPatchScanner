@@ -38,34 +38,34 @@ namespace HarmonyPatchScanner.RimWorld.UI
 
             if (summary == null)
             {
-                builder.AppendLine("Use Scan all, Find conflicts, or Scan mod to export Harmony patch reports for the current mod list.");
+                builder.AppendLine("HPS_DetailsNoScanInstructions".Translate());
                 builder.AppendLine();
-                builder.AppendLine("The selected mod panel is still useful before a scan because it shows RimWorld's active load order.");
+                builder.AppendLine("HPS_DetailsNoScanLoadOrderHint".Translate());
                 AppendSelectedModule(builder, selectedModule, null);
                 return builder.ToString();
             }
 
-            builder.AppendLine("Scan summary");
-            builder.AppendLine("Scan time: " + summary.Snapshot.ScanTime.ToString("yyyy-MM-dd HH:mm:ss"));
-            builder.AppendLine("Patched methods seen by Harmony: " + summary.Snapshot.TotalPatchedMethods);
-            builder.AppendLine("Mods with patches: " + summary.ModCount);
-            builder.AppendLine("Total patches: " + summary.Snapshot.Patches.Count);
-            builder.AppendLine("Prefixes: " + summary.TotalPrefixes);
-            builder.AppendLine("Postfixes: " + summary.TotalPostfixes);
-            builder.AppendLine("Transpilers: " + summary.TotalTranspilers);
-            builder.AppendLine("Finalizers: " + summary.TotalFinalizers);
-            builder.AppendLine("Short-circuit prefixes: " + summary.ShortCircuitPrefixes);
-            builder.AppendLine("Targets official code: " + summary.OfficialTargets);
-            builder.AppendLine("Potential cross-mod conflicts: " + summary.Conflicts.Count);
-            builder.AppendLine("Static IL findings: " +
-                               summary.StaticDeterministicFindings + " deterministic, " +
-                               summary.StaticLikelyFindings + " likely");
-            builder.AppendLine("Potential static notes: " + summary.StaticPotentialFindings + " in exported reports");
+            builder.AppendLine("HPS_DetailsScanSummary".Translate());
+            builder.AppendLine("HPS_DetailsScanTime".Translate(summary.Snapshot.ScanTime.ToString("yyyy-MM-dd HH:mm:ss")));
+            builder.AppendLine("HPS_DetailsPatchedMethods".Translate(summary.Snapshot.TotalPatchedMethods));
+            builder.AppendLine("HPS_DetailsModsWithPatches".Translate(summary.ModCount));
+            builder.AppendLine("HPS_DetailsTotalPatches".Translate(summary.Snapshot.Patches.Count));
+            builder.AppendLine("HPS_DetailsPrefixes".Translate(summary.TotalPrefixes));
+            builder.AppendLine("HPS_DetailsPostfixes".Translate(summary.TotalPostfixes));
+            builder.AppendLine("HPS_DetailsTranspilers".Translate(summary.TotalTranspilers));
+            builder.AppendLine("HPS_DetailsFinalizers".Translate(summary.TotalFinalizers));
+            builder.AppendLine("HPS_DetailsShortCircuitPrefixes".Translate(summary.ShortCircuitPrefixes));
+            builder.AppendLine("HPS_DetailsOfficialTargets".Translate(summary.OfficialTargets));
+            builder.AppendLine("HPS_DetailsPotentialConflicts".Translate(summary.Conflicts.Count));
+            builder.AppendLine("HPS_DetailsStaticFindings".Translate(
+                summary.StaticDeterministicFindings,
+                summary.StaticLikelyFindings));
+            builder.AppendLine("HPS_DetailsPotentialStaticNotes".Translate(summary.StaticPotentialFindings));
             builder.AppendLine();
 
             if (summary.Snapshot.Errors.Count > 0)
             {
-                builder.AppendLine("Scan warnings");
+                builder.AppendLine("HPS_DetailsScanWarnings".Translate());
                 foreach (var warning in summary.Snapshot.Errors)
                     builder.AppendLine("- " + warning);
                 builder.AppendLine();
@@ -80,52 +80,54 @@ namespace HarmonyPatchScanner.RimWorld.UI
 
         private static void AppendSelectedModule(StringBuilder builder, ModLoadInfo? module, PatchScannerUiSummary? summary)
         {
-            builder.AppendLine("Selected mod");
+            builder.AppendLine("HPS_SelectedMod".Translate());
 
             if (module == null)
             {
-                builder.AppendLine("No mod selected.");
+                builder.AppendLine("HPS_NoModSelected".Translate());
                 builder.AppendLine();
                 return;
             }
 
             builder.AppendLine("#" + module.Position + " " + module.DisplayName);
-            builder.AppendLine("Package ID: " + module.ModId);
-            builder.AppendLine("Assemblies: " + (module.AssemblyNames.Count == 0 ? "(none)" : string.Join(", ", module.AssemblyNames)));
-            builder.AppendLine("Official: " + YesNo(module.IsOfficial));
-            builder.AppendLine("Community library: " + YesNo(module.IsCommunityLibrary));
+            builder.AppendLine("HPS_DetailsPackageId".Translate(module.ModId));
+            builder.AppendLine("HPS_DetailsAssemblies".Translate(
+                module.AssemblyNames.Count == 0 ? "HPS_CommonNone".Translate().ToString() : string.Join(", ", module.AssemblyNames)));
+            builder.AppendLine("HPS_DetailsOfficial".Translate(YesNo(module.IsOfficial)));
+            builder.AppendLine("HPS_DetailsCommunityLibrary".Translate(YesNo(module.IsCommunityLibrary)));
 
             var moduleSummary = summary?.ForModule(module);
             if (summary != null)
             {
-                builder.AppendLine("Patches in last scan: " + (moduleSummary?.PatchCount ?? 0));
-                builder.AppendLine("Target methods: " + (moduleSummary?.TargetMethodCount ?? 0));
-                builder.AppendLine("Shared targets: " + (moduleSummary?.SharedTargetCount ?? 0));
+                builder.AppendLine("HPS_DetailsPatchesLastScan".Translate(moduleSummary?.PatchCount ?? 0));
+                builder.AppendLine("HPS_DetailsTargetMethods".Translate(moduleSummary?.TargetMethodCount ?? 0));
+                builder.AppendLine("HPS_DetailsSharedTargets".Translate(moduleSummary?.SharedTargetCount ?? 0));
 
                 if (moduleSummary != null)
                 {
                     if (moduleSummary.PrefixCount > 0)
-                        builder.AppendLine("  Prefix: " + moduleSummary.PrefixCount);
+                        builder.AppendLine("HPS_DetailsPrefixCount".Translate(moduleSummary.PrefixCount));
                     if (moduleSummary.FinalizerCount > 0)
-                        builder.AppendLine("  Finalizer: " + moduleSummary.FinalizerCount);
+                        builder.AppendLine("HPS_DetailsFinalizerCount".Translate(moduleSummary.FinalizerCount));
                     if (moduleSummary.TranspilerCount > 0)
-                        builder.AppendLine("  Transpiler: " + moduleSummary.TranspilerCount);
+                        builder.AppendLine("HPS_DetailsTranspilerCount".Translate(moduleSummary.TranspilerCount));
                     if (moduleSummary.PostfixCount > 0)
-                        builder.AppendLine("  Postfix: " + moduleSummary.PostfixCount);
+                        builder.AppendLine("HPS_DetailsPostfixCount".Translate(moduleSummary.PostfixCount));
                 }
 
                 if (moduleSummary != null && moduleSummary.SharedTargetCount > 0)
                 {
                     builder.AppendLine();
-                    builder.AppendLine("Selected mod shared targets");
+                    builder.AppendLine("HPS_DetailsSelectedModSharedTargets".Translate());
                     foreach (var sharedTarget in moduleSummary.SharedTargets.Take(12))
                     {
-                        builder.AppendLine("- " + MethodNameFormatter.FormatMethodName(sharedTarget.TargetMethod, false) +
-                                           " with " + sharedTarget.OtherOwners);
+                        builder.AppendLine("HPS_DetailsSharedTargetRow".Translate(
+                            MethodNameFormatter.FormatMethodName(sharedTarget.TargetMethod, false),
+                            sharedTarget.OtherOwners));
                     }
 
                     if (moduleSummary.SharedTargetCount > 12)
-                        builder.AppendLine("- ... " + (moduleSummary.SharedTargetCount - 12) + " more in the exported module report");
+                        builder.AppendLine("HPS_DetailsMoreModuleTargets".Translate(moduleSummary.SharedTargetCount - 12));
                 }
             }
 
@@ -134,11 +136,11 @@ namespace HarmonyPatchScanner.RimWorld.UI
 
         private static void AppendTopConflicts(StringBuilder builder, System.Collections.Generic.IReadOnlyList<ConflictRecord> conflicts)
         {
-            builder.AppendLine("Highest-risk potential shared targets");
+            builder.AppendLine("HPS_DetailsHighestRiskTargets".Translate());
 
             if (conflicts.Count == 0)
             {
-                builder.AppendLine("No potential cross-mod conflicts in the last scan.");
+                builder.AppendLine("HPS_DetailsNoConflicts".Translate());
                 builder.AppendLine();
                 return;
             }
@@ -146,28 +148,43 @@ namespace HarmonyPatchScanner.RimWorld.UI
             foreach (var conflict in conflicts.Take(12))
             {
                 var owners = conflict.Patches.Select(p => p.Owner).Distinct().Count();
-                builder.AppendLine("- [Potential " + conflict.RiskLevel + "] " +
-                                   MethodNameFormatter.FormatMethodName(conflict.MethodKey, false) +
-                                   " - " + conflict.Patches.Count + " patches from " + owners + " mods");
+                builder.AppendLine("HPS_DetailsConflictRow".Translate(
+                    TranslateRiskLevel(conflict.RiskLevel),
+                    MethodNameFormatter.FormatMethodName(conflict.MethodKey, false),
+                    conflict.Patches.Count,
+                    owners));
             }
 
             if (conflicts.Count > 12)
-                builder.AppendLine("- ... " + (conflicts.Count - 12) + " more in DuplicateHarmonyPatches.txt");
+                builder.AppendLine("HPS_DetailsMoreConflicts".Translate(conflicts.Count - 12));
 
             builder.AppendLine();
         }
 
         private static void AppendTopPatchOwners(StringBuilder builder, PatchScannerUiSummary summary)
         {
-            builder.AppendLine("Top patch owners");
+            builder.AppendLine("HPS_DetailsTopPatchOwners".Translate());
             foreach (var owner in summary.TopPatchOwners)
-                builder.AppendLine("- " + owner.Owner + ": " + owner.Count + " patches");
+                builder.AppendLine("HPS_DetailsPatchOwnerRow".Translate(owner.Owner, owner.Count));
             builder.AppendLine();
         }
 
         private static string YesNo(bool value)
         {
-            return value ? "yes" : "no";
+            return value ? "HPS_CommonYes".Translate() : "HPS_CommonNo".Translate();
+        }
+
+        private static string TranslateRiskLevel(ConflictRiskLevel riskLevel)
+        {
+            switch (riskLevel)
+            {
+                case ConflictRiskLevel.High:
+                    return "HPS_RiskHigh".Translate();
+                case ConflictRiskLevel.Medium:
+                    return "HPS_RiskMedium".Translate();
+                default:
+                    return "HPS_RiskLow".Translate();
+            }
         }
 
         private static float GetMeasuredHeight(string text, float width)

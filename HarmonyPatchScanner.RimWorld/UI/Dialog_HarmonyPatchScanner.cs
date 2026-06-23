@@ -25,10 +25,10 @@ namespace HarmonyPatchScanner.RimWorld.UI
         private Vector2 detailsScroll;
         private Vector2 actionsScroll;
         private string searchText = string.Empty;
-        private string statusText = "Ready.";
-        private string statusTooltipText = "Ready.";
+        private string statusText = "HPS_StatusReady".Translate();
+        private string statusTooltipText = "HPS_StatusReady".Translate();
         private string lastExportPath = string.Empty;
-        private string currentReport = "No scan has been run.";
+        private string currentReport = "HPS_StatusNoScanRun".Translate();
         private string detailsText = string.Empty;
 
         public Dialog_HarmonyPatchScanner(HarmonyPatchScannerSettings settings)
@@ -69,7 +69,7 @@ namespace HarmonyPatchScanner.RimWorld.UI
         private void DrawTopBar(Rect rect)
         {
             Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(rect.x, rect.y, 360f, rect.height), "Harmony Patch Scanner");
+            Widgets.Label(new Rect(rect.x, rect.y, 360f, rect.height), "HPS_ModName".Translate());
             Text.Font = GameFont.Small;
 
             const float scanAllWidth = 115f;
@@ -85,16 +85,16 @@ namespace HarmonyPatchScanner.RimWorld.UI
             var moduleRect = new Rect(conflictRect.xMax + PatchScannerUiConstants.Gap, y, moduleWidth, PatchScannerUiConstants.ButtonHeight);
             var clearRect = new Rect(moduleRect.xMax + PatchScannerUiConstants.Gap, y, clearWidth, PatchScannerUiConstants.ButtonHeight);
 
-            if (Widgets.ButtonText(scanRect, "Scan all"))
+            if (Widgets.ButtonText(scanRect, "HPS_ScanAllShort".Translate()))
                 RunScanAll();
 
-            if (Widgets.ButtonText(conflictRect, "Find conflicts"))
+            if (Widgets.ButtonText(conflictRect, "HPS_FindConflictsShort".Translate()))
                 RunConflictScan();
 
-            if (Widgets.ButtonText(moduleRect, "Scan mod"))
+            if (Widgets.ButtonText(moduleRect, "HPS_ScanModShort".Translate()))
                 RunModuleScan();
 
-            if (Widgets.ButtonText(clearRect, "Clear"))
+            if (Widgets.ButtonText(clearRect, "HPS_Clear".Translate()))
                 ClearResults();
         }
 
@@ -161,7 +161,7 @@ namespace HarmonyPatchScanner.RimWorld.UI
             settings.SelectedModuleId = module.ModId;
             detailsScroll = Vector2.zero;
             actionsScroll = Vector2.zero;
-            SetStatus("Selected " + module.DisplayName + ".");
+            SetStatus("HPS_StatusSelectedMod".Translate(module.DisplayName));
             RefreshDetailsText();
         }
 
@@ -189,24 +189,24 @@ namespace HarmonyPatchScanner.RimWorld.UI
 
         private void RunScanAll()
         {
-            RunExport("Full patch scan", () => scannerService.ExportAllPatches(BuildOptions()));
+            RunExport("HPS_ReportNameFullPatchScan".Translate(), () => scannerService.ExportAllPatches(BuildOptions()));
         }
 
         private void RunConflictScan()
         {
-            RunExport("Conflict scan", () => scannerService.ExportConflictReport(BuildOptions()));
+            RunExport("HPS_ReportNameConflictScan".Translate(), () => scannerService.ExportConflictReport(BuildOptions()));
         }
 
         private void RunModuleScan()
         {
             if (selectedModule == null)
             {
-                SetStatus("Select a mod first.");
+                SetStatus("HPS_StatusSelectModFirst".Translate());
                 Messages.Message(statusText, MessageTypeDefOf.RejectInput, false);
                 return;
             }
 
-            RunExport("Module scan", () => scannerService.ExportModuleReport(BuildOptions(), selectedModule.ModId));
+            RunExport("HPS_ReportNameModuleScan".Translate(), () => scannerService.ExportModuleReport(BuildOptions(), selectedModule.ModId));
         }
 
         private void RunExport(string reportName, Func<PatchExportResult> export)
@@ -217,14 +217,17 @@ namespace HarmonyPatchScanner.RimWorld.UI
                 snapshot = result.Snapshot;
                 uiSummary = snapshot == null ? null : PatchScannerUiSummary.Build(snapshot, loadOrder);
                 lastExportPath = result.FilePath;
-                SetStatus(ShortenExportStatus(result.Message, result.FilePath), result.Message);
-                currentReport = reportName + " completed at " + DateTime.Now.ToString("HH:mm:ss") + ".";
+                var fileName = Path.GetFileName(result.FilePath);
+                SetStatus(
+                    "HPS_StatusExportSaved".Translate(reportName, fileName),
+                    "HPS_StatusExportSavedPath".Translate(reportName, result.FilePath));
+                currentReport = "HPS_StatusReportCompletedAt".Translate(reportName, DateTime.Now.ToString("HH:mm:ss"));
                 RefreshDetailsText();
                 detailsScroll = Vector2.zero;
             }
             catch (Exception ex)
             {
-                SetStatus(reportName + " failed: " + ex.Message);
+                SetStatus("HPS_StatusReportFailed".Translate(reportName, ex.Message));
                 Messages.Message(statusText, MessageTypeDefOf.RejectInput, false);
                 Log.Error("[HarmonyPatchScanner] " + ex);
             }
@@ -235,8 +238,8 @@ namespace HarmonyPatchScanner.RimWorld.UI
             snapshot = null;
             uiSummary = null;
             lastExportPath = string.Empty;
-            currentReport = "No scan has been run.";
-            SetStatus("Cleared.");
+            currentReport = "HPS_StatusNoScanRun".Translate();
+            SetStatus("HPS_StatusCleared".Translate());
             RefreshDetailsText();
             detailsScroll = Vector2.zero;
         }
@@ -245,19 +248,19 @@ namespace HarmonyPatchScanner.RimWorld.UI
         {
             if (string.IsNullOrEmpty(lastExportPath))
             {
-                SetStatus("No exported log path to copy yet.");
+                SetStatus("HPS_StatusNoLogPath".Translate());
                 return;
             }
 
             GUIUtility.systemCopyBuffer = lastExportPath;
-            SetStatus("Copied log path to clipboard.");
+            SetStatus("HPS_StatusCopiedLogPath".Translate());
         }
 
         private void ShowStaticFindings()
         {
             if (snapshot == null)
             {
-                SetStatus("Run a scan before viewing static IL findings.");
+                SetStatus("HPS_StatusScanBeforeStaticFindings".Translate());
                 return;
             }
 
@@ -268,7 +271,7 @@ namespace HarmonyPatchScanner.RimWorld.UI
 
             if (actionableFindings.Count == 0)
             {
-                SetStatus("No deterministic or likely static IL findings in the last scan.");
+                SetStatus("HPS_StatusNoActionableStaticFindings".Translate());
                 return;
             }
 
@@ -286,16 +289,6 @@ namespace HarmonyPatchScanner.RimWorld.UI
             statusTooltipText = tooltip ?? text;
         }
 
-        private static string ShortenExportStatus(string message, string filePath)
-        {
-            if (string.IsNullOrEmpty(filePath))
-                return message;
-
-            var fileName = Path.GetFileName(filePath);
-            return string.IsNullOrEmpty(fileName)
-                ? message
-                : message.Replace(filePath, fileName);
-        }
     }
 }
 #endif

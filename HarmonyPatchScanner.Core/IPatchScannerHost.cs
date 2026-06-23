@@ -19,6 +19,8 @@ namespace HarmonyPatchScanner.Core
 
         string GetLogDirectory();
 
+        string Translate(string key, params object[] arguments);
+
         void Notify(string message, PatchScannerNotificationLevel level);
     }
 
