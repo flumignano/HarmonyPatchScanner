@@ -11,12 +11,12 @@ namespace HarmonyPatchScanner.RimWorld.UI
         public static void Draw(
             Rect rect,
             HarmonyPatchScannerSettings settings,
+            PatchScannerScope scope,
             ModLoadInfo? selectedModule,
             string lastExportPath,
             string logDirectory,
-            Action scanAll,
+            Action scanPatchList,
             Action findConflicts,
-            Action scanModule,
             Action viewStaticFindings,
             Action copyLastPath,
             ref Vector2 scrollPosition)
@@ -28,26 +28,58 @@ namespace HarmonyPatchScanner.RimWorld.UI
             Widgets.BeginScrollView(inner, ref scrollPosition, viewRect);
 
             var y = 0f;
-            Widgets.Label(new Rect(0f, y, viewRect.width, PatchScannerUiConstants.TextLineHeight), "HPS_Actions".Translate());
+            var selectedScope = scope == PatchScannerScope.SelectedMod;
+            var hasSelectedModule = selectedModule != null;
+            var actionsTitle = selectedScope ? "HPS_SelectedModActions".Translate() : "HPS_AllModsActions".Translate();
+            Widgets.Label(new Rect(0f, y, viewRect.width, PatchScannerUiConstants.TextLineHeight), actionsTitle);
             y += PatchScannerUiConstants.TextLineHeight + 6f;
 
-            if (Widgets.ButtonText(new Rect(0f, y, viewRect.width, PatchScannerUiConstants.ButtonHeight), "HPS_ScanAll".Translate()))
-                scanAll();
+            if (selectedScope)
+            {
+                var selectedText = selectedModule == null
+                    ? "HPS_NoModSelected".Translate().ToString()
+                    : "#" + selectedModule.Position + " " + selectedModule.DisplayName + "\n" + selectedModule.ModId;
+                var selectedHeight = Text.CalcHeight(selectedText, viewRect.width);
+                Widgets.Label(new Rect(0f, y, viewRect.width, selectedHeight), selectedText);
+                y += selectedHeight + 8f;
+
+                if (!hasSelectedModule)
+                {
+                    var hint = "HPS_SelectModOrUseAllScope".Translate().ToString();
+                    var hintHeight = Text.CalcHeight(hint, viewRect.width);
+                    Widgets.Label(new Rect(0f, y, viewRect.width, hintHeight), hint);
+                    y += hintHeight + 8f;
+                }
+            }
+            else
+            {
+                Widgets.Label(
+                    new Rect(0f, y, viewRect.width, PatchScannerUiConstants.TextLineHeight),
+                    "HPS_AllLoadedModsScope".Translate());
+                y += PatchScannerUiConstants.TextLineHeight + 8f;
+            }
+
+            var actionsEnabled = !selectedScope || hasSelectedModule;
+            var previousEnabled = GUI.enabled;
+            GUI.enabled = actionsEnabled;
+
+            var scanLabel = selectedScope ? "HPS_ScanSelectedMod".Translate() : "HPS_ScanAll".Translate();
+            if (Widgets.ButtonText(new Rect(0f, y, viewRect.width, PatchScannerUiConstants.ButtonHeight), scanLabel))
+                scanPatchList();
             y += PatchScannerUiConstants.ButtonHeight + PatchScannerUiConstants.Gap;
 
-            if (Widgets.ButtonText(new Rect(0f, y, viewRect.width, PatchScannerUiConstants.ButtonHeight), "HPS_FindConflicts".Translate()))
+            var conflictsLabel = selectedScope ? "HPS_FindSelectedModConflicts".Translate() : "HPS_FindConflicts".Translate();
+            if (Widgets.ButtonText(new Rect(0f, y, viewRect.width, PatchScannerUiConstants.ButtonHeight), conflictsLabel))
                 findConflicts();
             y += PatchScannerUiConstants.ButtonHeight + PatchScannerUiConstants.Gap;
 
-            if (Widgets.ButtonText(new Rect(0f, y, viewRect.width, PatchScannerUiConstants.ButtonHeight), "HPS_ScanSelectedMod".Translate()))
-                scanModule();
-            y += PatchScannerUiConstants.ButtonHeight + PatchScannerUiConstants.Gap;
-
-            if (Widgets.ButtonText(new Rect(0f, y, viewRect.width, PatchScannerUiConstants.ButtonHeight), "HPS_ViewStaticFindings".Translate()))
+            var findingsLabel = selectedScope ? "HPS_ViewSelectedModStaticFindings".Translate() : "HPS_ViewAllStaticFindings".Translate();
+            if (Widgets.ButtonText(new Rect(0f, y, viewRect.width, PatchScannerUiConstants.ButtonHeight), findingsLabel))
                 viewStaticFindings();
             y += PatchScannerUiConstants.ButtonHeight + 16f;
+            GUI.enabled = previousEnabled;
 
-            Widgets.Label(new Rect(0f, y, viewRect.width, PatchScannerUiConstants.TextLineHeight), "HPS_Filters".Translate());
+            Widgets.Label(new Rect(0f, y, viewRect.width, PatchScannerUiConstants.TextLineHeight), "HPS_FiltersAllScans".Translate());
             y += PatchScannerUiConstants.TextLineHeight + 4f;
 
             var lifecycleRect = new Rect(0f, y, viewRect.width, PatchScannerUiConstants.TextLineHeight);
@@ -60,15 +92,8 @@ namespace HarmonyPatchScanner.RimWorld.UI
             TooltipHandler.TipRegion(communityRect, "HPS_ExcludeCommunityLibrariesTooltip".Translate());
             y += PatchScannerUiConstants.TextLineHeight + 16f;
 
-            Widgets.Label(new Rect(0f, y, viewRect.width, PatchScannerUiConstants.TextLineHeight), "HPS_SelectedMod".Translate());
-            y += PatchScannerUiConstants.TextLineHeight;
-            var selectedText = selectedModule == null
-                ? "HPS_NoModSelected".Translate().ToString()
-                : "#" + selectedModule.Position + " " + selectedModule.DisplayName + "\n" + selectedModule.ModId;
-            var selectedHeight = Text.CalcHeight(selectedText, viewRect.width);
-            Widgets.Label(new Rect(0f, y, viewRect.width, selectedHeight), selectedText);
-            y += selectedHeight + 16f;
-
+            Widgets.Label(new Rect(0f, y, viewRect.width, PatchScannerUiConstants.TextLineHeight), "HPS_Output".Translate());
+            y += PatchScannerUiConstants.TextLineHeight + 4f;
             Widgets.Label(new Rect(0f, y, viewRect.width, PatchScannerUiConstants.TextLineHeight), "HPS_ExportFolder".Translate());
             y += PatchScannerUiConstants.TextLineHeight;
             var folderHeight = Text.CalcHeight(logDirectory, viewRect.width);
@@ -82,14 +107,12 @@ namespace HarmonyPatchScanner.RimWorld.UI
             Widgets.Label(new Rect(0f, y, viewRect.width, pathHeight), pathText);
             y += pathHeight + PatchScannerUiConstants.Gap;
 
+            var hasExportPath = !string.IsNullOrEmpty(lastExportPath);
+            previousEnabled = GUI.enabled;
+            GUI.enabled = hasExportPath;
             if (Widgets.ButtonText(new Rect(0f, y, viewRect.width, PatchScannerUiConstants.ButtonHeight), "HPS_CopyLastLogPath".Translate()))
                 copyLastPath();
-            y += PatchScannerUiConstants.ButtonHeight + 16f;
-
-            Widgets.Label(new Rect(0f, y, viewRect.width, PatchScannerUiConstants.TextLineHeight), "HPS_ReportFiles".Translate());
-            y += PatchScannerUiConstants.TextLineHeight;
-            var files = "AllHarmonyPatches.txt\nDuplicateHarmonyPatches.txt\nModuleScan_<mod>.txt";
-            Widgets.Label(new Rect(0f, y, viewRect.width, Text.CalcHeight(files, viewRect.width)), files);
+            GUI.enabled = previousEnabled;
 
             Widgets.EndScrollView();
         }

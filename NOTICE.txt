@@ -1,4 +1,4 @@
-Harmony Patch Scanner for RimWorld
+Harmony Patch Scanner
 
 Based on the original Harmony Patch Scanner by TadasTheLithuanian.
 

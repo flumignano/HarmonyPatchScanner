@@ -8,7 +8,7 @@
   <HPS_ExcludeCommunityLibrariesTooltip>Hides common framework/library mods such as Harmony and HugsLib when possible.</HPS_ExcludeCommunityLibrariesTooltip>
   <HPS_OpenScanner>Open Harmony Patch Scanner</HPS_OpenScanner>
   <HPS_ReportsLocation>Reports are written to Config/HarmonyPatchScanner/logs.</HPS_ReportsLocation>
-  <HPS_ExportedFiles>Exported files: AllHarmonyPatches.txt, DuplicateHarmonyPatches.txt, and ModuleScan_&lt;mod&gt;.txt.</HPS_ExportedFiles>
+  <HPS_ExportedFiles>Exported files: AllHarmonyPatches.txt, DuplicateHarmonyPatches.txt, ModuleScan_&lt;mod&gt;.txt, and ModuleConflicts_&lt;mod&gt;.txt.</HPS_ExportedFiles>
 
   <!-- Shared labels -->
   <HPS_Actions>Actions</HPS_Actions>
@@ -20,6 +20,7 @@
   <HPS_NoReportExported>No report exported yet.</HPS_NoReportExported>
   <HPS_CopyLastLogPath>Copy last log path</HPS_CopyLastLogPath>
   <HPS_ReportFiles>Report files</HPS_ReportFiles>
+  <HPS_Output>Output</HPS_Output>
   <HPS_CommonYes>yes</HPS_CommonYes>
   <HPS_CommonNo>no</HPS_CommonNo>
   <HPS_CommonNone>(none)</HPS_CommonNone>
@@ -29,11 +30,25 @@
   <HPS_ScanAll>Scan all Harmony patches</HPS_ScanAll>
   <HPS_FindConflicts>Find duplicate/conflicting patches</HPS_FindConflicts>
   <HPS_ScanSelectedMod>Scan selected mod</HPS_ScanSelectedMod>
+  <HPS_FindSelectedModConflicts>Find selected mod conflicts</HPS_FindSelectedModConflicts>
   <HPS_ViewStaticFindings>View static IL findings</HPS_ViewStaticFindings>
+  <HPS_ViewAllStaticFindings>View all static IL findings</HPS_ViewAllStaticFindings>
+  <HPS_ViewSelectedModStaticFindings>View selected mod IL findings</HPS_ViewSelectedModStaticFindings>
+  <HPS_AllModsActions>All mods actions</HPS_AllModsActions>
+  <HPS_SelectedModActions>Selected mod actions</HPS_SelectedModActions>
+  <HPS_AllLoadedModsScope>All loaded mods</HPS_AllLoadedModsScope>
+  <HPS_SelectModOrUseAllScope>Select a mod from the list, or switch to All mods for load-order-wide reports.</HPS_SelectModOrUseAllScope>
+  <HPS_FiltersAllScans>Scan filters (all scopes)</HPS_FiltersAllScans>
   <HPS_ScanAllShort>Scan all</HPS_ScanAllShort>
   <HPS_FindConflictsShort>Find conflicts</HPS_FindConflictsShort>
   <HPS_ScanModShort>Scan mod</HPS_ScanModShort>
   <HPS_Clear>Clear</HPS_Clear>
+
+  <!-- Scope selector -->
+  <HPS_Scope>Scope</HPS_Scope>
+  <HPS_ScopeAllMods>All mods</HPS_ScopeAllMods>
+  <HPS_ScopeSelectedMod>Selected mod</HPS_ScopeSelectedMod>
+  <HPS_SelectModForScope>Select a mod from the loaded-mod list to enable this scope.</HPS_SelectModForScope>
 
   <!-- Loaded mod list -->
   <HPS_LoadedMods>Loaded mods</HPS_LoadedMods>
@@ -48,6 +63,8 @@
   <HPS_StatusReady>Ready.</HPS_StatusReady>
   <HPS_StatusNoScanRun>No scan has been run.</HPS_StatusNoScanRun>
   <HPS_StatusSelectedMod>Selected {0}.</HPS_StatusSelectedMod>
+  <HPS_StatusAllModsScope>Switched to All mods.</HPS_StatusAllModsScope>
+  <HPS_StatusSelectedModScope>Switched to Selected mod: {0}.</HPS_StatusSelectedModScope>
   <HPS_StatusSelectModFirst>Select a mod first.</HPS_StatusSelectModFirst>
   <HPS_StatusExportSaved>{0} complete. Saved to {1}.</HPS_StatusExportSaved>
   <HPS_StatusExportSavedPath>{0} complete. Saved to {1}.</HPS_StatusExportSavedPath>
@@ -61,13 +78,17 @@
   <HPS_ReportNameFullPatchScan>Full patch scan</HPS_ReportNameFullPatchScan>
   <HPS_ReportNameConflictScan>Conflict scan</HPS_ReportNameConflictScan>
   <HPS_ReportNameModuleScan>Module scan</HPS_ReportNameModuleScan>
+  <HPS_ReportNameModuleConflictScan>Selected mod conflict scan</HPS_ReportNameModuleConflictScan>
   <HPS_NotificationScanComplete>Scan complete! {0} mods / {1} patches. Transpilers: {2}. Static findings: {3} deterministic, {4} likely. Results saved to {5}</HPS_NotificationScanComplete>
   <HPS_NotificationConflictScanComplete>Conflict scan complete! {0} potential conflicts ({1} potential high risk), {2} potential short-circuit risks. Saved to {3}</HPS_NotificationConflictScanComplete>
   <HPS_NotificationModuleScanComplete>Module scan complete! {0}: {1} patches, {2} potential conflicts. Saved to {3}</HPS_NotificationModuleScanComplete>
+  <HPS_NotificationModuleConflictScanComplete>Selected mod conflict scan complete! {0}: {2} potential conflicts across {1} patches. Saved to {3}</HPS_NotificationModuleConflictScanComplete>
 
   <!-- Details panel -->
   <HPS_DetailsNoScanInstructions>Use Scan all, Find conflicts, or Scan mod to export Harmony patch reports for the current mod list.</HPS_DetailsNoScanInstructions>
   <HPS_DetailsNoScanLoadOrderHint>The selected mod panel is still useful before a scan because it shows RimWorld's active load order.</HPS_DetailsNoScanLoadOrderHint>
+  <HPS_DetailsNoAllScanInstructions>Use Scan all or Find conflicts to export a report for every loaded mod.</HPS_DetailsNoAllScanInstructions>
+  <HPS_DetailsNoSelectedScanInstructions>Scan the selected mod or find its conflicts to export a focused report.</HPS_DetailsNoSelectedScanInstructions>
   <HPS_DetailsScanSummary>Scan summary</HPS_DetailsScanSummary>
   <HPS_DetailsScanTime>Scan time: {0}</HPS_DetailsScanTime>
   <HPS_DetailsPatchedMethods>Patched methods seen by Harmony: {0}</HPS_DetailsPatchedMethods>
@@ -96,7 +117,16 @@
   <HPS_DetailsPostfixCount>  Postfix: {0}</HPS_DetailsPostfixCount>
   <HPS_DetailsSelectedModSharedTargets>Selected mod shared targets</HPS_DetailsSelectedModSharedTargets>
   <HPS_DetailsSharedTargetRow>- {0} with {1}</HPS_DetailsSharedTargetRow>
-  <HPS_DetailsMoreModuleTargets>- ... {0} more in the exported module report</HPS_DetailsMoreModuleTargets>
+  <HPS_DetailsMoreModuleTargets>- ... {0} more; export selected mod conflicts for details</HPS_DetailsMoreModuleTargets>
+  <HPS_DetailsSelectedConflictSummary>Selected mod conflict summary</HPS_DetailsSelectedConflictSummary>
+  <HPS_DetailsSelectedConflictCount>Potential shared targets: {0}</HPS_DetailsSelectedConflictCount>
+  <HPS_DetailsSelectedConflictRiskCounts>Potential high: {0}, medium: {1}, low: {2}</HPS_DetailsSelectedConflictRiskCounts>
+  <HPS_DetailsSelectedConflictReportFile>Detailed report: {0}</HPS_DetailsSelectedConflictReportFile>
+  <HPS_DetailsSelectedConflictTargets>Highest-risk selected mod targets</HPS_DetailsSelectedConflictTargets>
+  <HPS_DetailsSelectedConflictRow>- [Potential {0}] {1} with {2} other mod(s): {3}</HPS_DetailsSelectedConflictRow>
+  <HPS_DetailsMoreSelectedConflicts>- ... {0} more in {1}</HPS_DetailsMoreSelectedConflicts>
+  <HPS_DetailsAllPatchConflictHint>Potential shared targets found: {0}</HPS_DetailsAllPatchConflictHint>
+  <HPS_DetailsAllPatchConflictAction>Use Find conflicts to create or refresh the detailed conflict report.</HPS_DetailsAllPatchConflictAction>
   <HPS_DetailsHighestRiskTargets>Highest-risk potential shared targets</HPS_DetailsHighestRiskTargets>
   <HPS_DetailsNoConflicts>No potential cross-mod conflicts in the last scan.</HPS_DetailsNoConflicts>
   <HPS_DetailsConflictRow>- [Potential {0}] {1} - {2} patches from {3} mods</HPS_DetailsConflictRow>

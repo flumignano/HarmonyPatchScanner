@@ -26,6 +26,11 @@ namespace HarmonyPatchScanner.RimWorld
         {
             return CreateService().ExportModuleReport(Options, packageId);
         }
+
+        public static PatchExportResult ExportModuleConflictReport(string packageId)
+        {
+            return CreateService().ExportModuleConflictReport(Options, packageId);
+        }
     }
 }
 #endif

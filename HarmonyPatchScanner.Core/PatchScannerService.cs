@@ -1,4 +1,5 @@
 using System;
+using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 
@@ -24,6 +25,13 @@ namespace HarmonyPatchScanner.Core
             var snapshot = _engine.Scan(options);
             var staticFindings = _staticAnalyzer.Analyze(snapshot);
             return snapshot.WithStaticFindings(staticFindings);
+        }
+
+        public IReadOnlyList<StaticPatchFinding> GetModuleStaticFindings(PatchScanSnapshot snapshot, string moduleId)
+        {
+            return _reportBuilder.GetModulePatches(snapshot, moduleId)
+                .SelectMany(patch => patch.StaticFindings)
+                .ToList();
         }
 
         public PatchExportResult ExportAllPatches(PatchScannerOptions options)
@@ -83,7 +91,7 @@ namespace HarmonyPatchScanner.Core
             if (string.IsNullOrWhiteSpace(moduleId))
                 throw new ArgumentException("Module id is required.", nameof(moduleId));
 
-            var snapshot = Scan(options);
+            var snapshot = ScanModule(options, moduleId);
             var report = _reportBuilder.BuildModuleReport(snapshot, options, moduleId);
             var module = snapshot.LoadOrder.FirstOrDefault(m =>
                 string.Equals(m.ModId, moduleId, StringComparison.OrdinalIgnoreCase));
@@ -91,15 +99,8 @@ namespace HarmonyPatchScanner.Core
             var safeName = MethodNameFormatter.SanitizeFileName(displayName);
             var filePath = WriteReport($"ModuleScan_{safeName}.txt", report);
 
-            var moduleAssemblyNames = module?.AssemblyNames ?? Array.Empty<string>();
-            var modulePatchCount = snapshot.Patches.Count(p =>
-                string.Equals(p.OwnerModId, moduleId, StringComparison.OrdinalIgnoreCase) ||
-                (!string.IsNullOrEmpty(p.PatchAssemblyName) && moduleAssemblyNames.Contains(p.PatchAssemblyName, StringComparer.OrdinalIgnoreCase)));
-
-            var conflictCount = snapshot.Patches
-                .GroupBy(p => p.TargetMethod)
-                .Count(g => g.Any(p => string.Equals(p.OwnerModId, moduleId, StringComparison.OrdinalIgnoreCase)) &&
-                            g.Any(p => !string.Equals(p.OwnerModId, moduleId, StringComparison.OrdinalIgnoreCase)));
+            var modulePatchCount = _reportBuilder.GetModulePatches(snapshot, moduleId).Count;
+            var conflictCount = _reportBuilder.GetModuleConflicts(snapshot, moduleId).Count;
 
             var level = conflictCount > 0 ? PatchScannerNotificationLevel.Warning : PatchScannerNotificationLevel.Success;
 
@@ -113,6 +114,58 @@ namespace HarmonyPatchScanner.Core
                     conflictCount,
                     filePath),
                 level);
+        }
+
+        public PatchExportResult ExportModuleConflictReport(PatchScannerOptions options, string moduleId)
+        {
+            if (string.IsNullOrWhiteSpace(moduleId))
+                throw new ArgumentException("Module id is required.", nameof(moduleId));
+
+            var snapshot = ScanModule(options, moduleId);
+            var report = _reportBuilder.BuildModuleConflictReport(snapshot, options, moduleId);
+            var module = snapshot.LoadOrder.FirstOrDefault(m =>
+                string.Equals(m.ModId, moduleId, StringComparison.OrdinalIgnoreCase));
+            var displayName = module?.DisplayName ?? moduleId;
+            var safeName = MethodNameFormatter.SanitizeFileName(displayName);
+            var filePath = WriteReport($"ModuleConflicts_{safeName}.txt", report);
+            var modulePatchCount = _reportBuilder.GetModulePatches(snapshot, moduleId).Count;
+            var conflictCount = _reportBuilder.GetModuleConflicts(snapshot, moduleId).Count;
+            var level = conflictCount > 0 ? PatchScannerNotificationLevel.Warning : PatchScannerNotificationLevel.Success;
+
+            return Complete(
+                snapshot,
+                filePath,
+                _host.Translate(
+                    "HPS_NotificationModuleConflictScanComplete",
+                    displayName,
+                    modulePatchCount,
+                    conflictCount,
+                    filePath),
+                level);
+        }
+
+        private PatchScanSnapshot ScanModule(PatchScannerOptions options, string moduleId)
+        {
+            var snapshot = _engine.Scan(options);
+            var moduleTargets = new HashSet<string>(
+                _reportBuilder.GetModulePatches(snapshot, moduleId).Select(p => p.TargetMethod),
+                StringComparer.Ordinal);
+
+            // Conflict detection must inspect all loaded patch metadata, but module exports do
+            // not need to decode IL for unrelated targets. This keeps the operation standalone
+            // and focused without invoking patch methods or writing an all-mod report.
+            var relevantPatches = snapshot.Patches
+                .Where(p => moduleTargets.Contains(p.TargetMethod))
+                .ToList();
+            var focusedSnapshot = new PatchScanSnapshot(
+                snapshot.ScanTime,
+                snapshot.TotalPatchedMethods,
+                relevantPatches,
+                snapshot.LoadOrder,
+                snapshot.Errors);
+            var staticFindings = _staticAnalyzer.Analyze(focusedSnapshot);
+
+            return snapshot.WithStaticFindings(staticFindings);
         }
 
         private string WriteReport(string fileName, string report)

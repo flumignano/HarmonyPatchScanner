@@ -1,5 +1,7 @@
 #if RIMWORLD
 using System;
+using System.Collections.Generic;
+using System.IO;
 using System.Linq;
 using System.Text;
 using HarmonyPatchScanner.Core;
@@ -30,7 +32,13 @@ namespace HarmonyPatchScanner.RimWorld.UI
             Widgets.EndScrollView();
         }
 
-        public static string BuildDetailsText(PatchScannerUiSummary? summary, ModLoadInfo? selectedModule, string currentReport)
+        public static string BuildDetailsText(
+            PatchScannerScope scope,
+            PatchScannerUiSummary? summary,
+            ModLoadInfo? selectedModule,
+            PatchScannerReportKind reportKind,
+            string lastExportPath,
+            string currentReport)
         {
             var builder = new StringBuilder();
             builder.AppendLine(currentReport);
@@ -38,10 +46,21 @@ namespace HarmonyPatchScanner.RimWorld.UI
 
             if (summary == null)
             {
-                builder.AppendLine("HPS_DetailsNoScanInstructions".Translate());
-                builder.AppendLine();
-                builder.AppendLine("HPS_DetailsNoScanLoadOrderHint".Translate());
-                AppendSelectedModule(builder, selectedModule, null);
+                builder.AppendLine(scope == PatchScannerScope.AllMods
+                    ? "HPS_DetailsNoAllScanInstructions".Translate()
+                    : "HPS_DetailsNoSelectedScanInstructions".Translate());
+                if (scope == PatchScannerScope.SelectedMod)
+                {
+                    builder.AppendLine();
+                    AppendSelectedModule(builder, selectedModule, null, reportKind, lastExportPath);
+                }
+                return builder.ToString();
+            }
+
+            if (scope == PatchScannerScope.SelectedMod)
+            {
+                AppendSelectedModule(builder, selectedModule, summary, reportKind, lastExportPath);
+                AppendWarnings(builder, summary);
                 return builder.ToString();
             }
 
@@ -63,22 +82,33 @@ namespace HarmonyPatchScanner.RimWorld.UI
             builder.AppendLine("HPS_DetailsPotentialStaticNotes".Translate(summary.StaticPotentialFindings));
             builder.AppendLine();
 
-            if (summary.Snapshot.Errors.Count > 0)
-            {
-                builder.AppendLine("HPS_DetailsScanWarnings".Translate());
-                foreach (var warning in summary.Snapshot.Errors)
-                    builder.AppendLine("- " + warning);
-                builder.AppendLine();
-            }
-
-            AppendSelectedModule(builder, selectedModule, summary);
-            AppendTopConflicts(builder, summary.Conflicts);
+            AppendWarnings(builder, summary);
+            if (reportKind == PatchScannerReportKind.AllConflicts)
+                AppendTopConflicts(builder, summary.Conflicts);
+            else
+                AppendAllPatchScanHint(builder, summary);
             AppendTopPatchOwners(builder, summary);
 
             return builder.ToString();
         }
 
-        private static void AppendSelectedModule(StringBuilder builder, ModLoadInfo? module, PatchScannerUiSummary? summary)
+        private static void AppendWarnings(StringBuilder builder, PatchScannerUiSummary summary)
+        {
+            if (summary.Snapshot.Errors.Count == 0)
+                return;
+
+            builder.AppendLine("HPS_DetailsScanWarnings".Translate());
+            foreach (var warning in summary.Snapshot.Errors)
+                builder.AppendLine("- " + warning);
+            builder.AppendLine();
+        }
+
+        private static void AppendSelectedModule(
+            StringBuilder builder,
+            ModLoadInfo? module,
+            PatchScannerUiSummary? summary,
+            PatchScannerReportKind reportKind,
+            string lastExportPath)
         {
             builder.AppendLine("HPS_SelectedMod".Translate());
 
@@ -115,7 +145,13 @@ namespace HarmonyPatchScanner.RimWorld.UI
                         builder.AppendLine("HPS_DetailsPostfixCount".Translate(moduleSummary.PostfixCount));
                 }
 
-                if (moduleSummary != null && moduleSummary.SharedTargetCount > 0)
+                if (moduleSummary != null &&
+                    moduleSummary.SharedTargetCount > 0 &&
+                    reportKind == PatchScannerReportKind.ModuleConflicts)
+                {
+                    AppendSelectedModuleConflictPreview(builder, module, summary, lastExportPath);
+                }
+                else if (moduleSummary != null && moduleSummary.SharedTargetCount > 0)
                 {
                     builder.AppendLine();
                     builder.AppendLine("HPS_DetailsSelectedModSharedTargets".Translate());
@@ -131,6 +167,120 @@ namespace HarmonyPatchScanner.RimWorld.UI
                 }
             }
 
+            builder.AppendLine();
+        }
+
+        private static void AppendSelectedModuleConflictPreview(
+            StringBuilder builder,
+            ModLoadInfo module,
+            PatchScannerUiSummary summary,
+            string lastExportPath)
+        {
+            var conflicts = GetSelectedModuleConflicts(summary, module);
+            var fileName = string.IsNullOrEmpty(lastExportPath)
+                ? "HPS_CommonUnknown".Translate().ToString()
+                : Path.GetFileName(lastExportPath);
+
+            builder.AppendLine();
+            builder.AppendLine("HPS_DetailsSelectedConflictSummary".Translate());
+            builder.AppendLine("HPS_DetailsSelectedConflictCount".Translate(conflicts.Count));
+            builder.AppendLine("HPS_DetailsSelectedConflictRiskCounts".Translate(
+                conflicts.Count(c => c.RiskLevel == ConflictRiskLevel.High),
+                conflicts.Count(c => c.RiskLevel == ConflictRiskLevel.Medium),
+                conflicts.Count(c => c.RiskLevel == ConflictRiskLevel.Low)));
+            builder.AppendLine("HPS_DetailsSelectedConflictReportFile".Translate(fileName));
+
+            if (conflicts.Count == 0)
+            {
+                builder.AppendLine("HPS_DetailsNoConflicts".Translate());
+                builder.AppendLine();
+                return;
+            }
+
+            builder.AppendLine();
+            builder.AppendLine("HPS_DetailsSelectedConflictTargets".Translate());
+            foreach (var conflict in conflicts.Take(12))
+            {
+                var otherOwners = conflict.Conflict.Patches
+                    .Where(patch => !PatchBelongsToModule(patch, module))
+                    .Select(patch => patch.Owner)
+                    .Distinct()
+                    .ToList();
+                builder.AppendLine("HPS_DetailsSelectedConflictRow".Translate(
+                    TranslateRiskLevel(conflict.RiskLevel),
+                    MethodNameFormatter.FormatMethodName(conflict.Conflict.MethodKey, false),
+                    otherOwners.Count,
+                    string.Join(", ", otherOwners)));
+            }
+
+            if (conflicts.Count > 12)
+                builder.AppendLine("HPS_DetailsMoreSelectedConflicts".Translate(conflicts.Count - 12, fileName));
+        }
+
+        private static List<SelectedModuleConflictPreview> GetSelectedModuleConflicts(PatchScannerUiSummary summary, ModLoadInfo module)
+        {
+            return summary.Conflicts
+                .Where(conflict =>
+                    conflict.Patches.Any(patch => PatchBelongsToModule(patch, module)) &&
+                    conflict.Patches.Any(patch => !PatchBelongsToModule(patch, module)))
+                .Select(conflict => new SelectedModuleConflictPreview(conflict, GetSelectedModuleRisk(conflict, module)))
+                .OrderByDescending(conflict => conflict.RiskLevel)
+                .ThenByDescending(conflict => conflict.Conflict.Patches.Count)
+                .ThenBy(conflict => conflict.Conflict.MethodKey)
+                .ToList();
+        }
+
+        private static ConflictRiskLevel GetSelectedModuleRisk(ConflictRecord conflict, ModLoadInfo module)
+        {
+            // Match the selected-mod conflict report: a medium risk only applies when this
+            // mod and another mod both prefix the target at the same Harmony priority.
+            if (conflict.Patches.Count(patch => patch.PatchType == HarmonyPatchKind.Transpiler) > 1)
+                return ConflictRiskLevel.High;
+
+            var prefixes = conflict.Patches
+                .Where(patch => patch.PatchType == HarmonyPatchKind.Prefix)
+                .ToList();
+            var modulePrefixes = prefixes
+                .Where(patch => PatchBelongsToModule(patch, module))
+                .ToList();
+            var otherPrefixes = prefixes
+                .Where(patch => !PatchBelongsToModule(patch, module))
+                .ToList();
+
+            if (modulePrefixes.Count > 0 &&
+                otherPrefixes.Count > 0 &&
+                modulePrefixes.Any(modulePatch => otherPrefixes.Any(otherPatch => otherPatch.Priority == modulePatch.Priority)))
+            {
+                return ConflictRiskLevel.Medium;
+            }
+
+            return ConflictRiskLevel.Low;
+        }
+
+        private static bool PatchBelongsToModule(PatchRecord patch, ModLoadInfo module)
+        {
+            if (!string.IsNullOrEmpty(patch.OwnerModId) &&
+                string.Equals(patch.OwnerModId, module.ModId, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+
+            if (!string.IsNullOrEmpty(patch.PatchAssemblyName) &&
+                module.AssemblyNames.Any(assembly => string.Equals(assembly, patch.PatchAssemblyName, StringComparison.OrdinalIgnoreCase)))
+            {
+                return true;
+            }
+
+            return patch.Owner.IndexOf(module.ModId, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static void AppendAllPatchScanHint(StringBuilder builder, PatchScannerUiSummary summary)
+        {
+            if (summary.Conflicts.Count == 0)
+                return;
+
+            builder.AppendLine("HPS_DetailsAllPatchConflictHint".Translate(summary.Conflicts.Count));
+            builder.AppendLine("HPS_DetailsAllPatchConflictAction".Translate());
             builder.AppendLine();
         }
 
@@ -199,6 +349,19 @@ namespace HarmonyPatchScanner.RimWorld.UI
             cachedMeasuredWidth = width;
             cachedMeasuredHeight = Text.CalcHeight(text, width);
             return cachedMeasuredHeight;
+        }
+
+        private sealed class SelectedModuleConflictPreview
+        {
+            public SelectedModuleConflictPreview(ConflictRecord conflict, ConflictRiskLevel riskLevel)
+            {
+                Conflict = conflict;
+                RiskLevel = riskLevel;
+            }
+
+            public ConflictRecord Conflict { get; }
+
+            public ConflictRiskLevel RiskLevel { get; }
         }
     }
 }

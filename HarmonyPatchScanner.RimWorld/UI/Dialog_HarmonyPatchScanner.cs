@@ -18,17 +18,20 @@ namespace HarmonyPatchScanner.RimWorld.UI
         private readonly IReadOnlyList<ModLoadInfo> loadOrder;
         private readonly string logDirectory;
 
-        private PatchScanSnapshot? snapshot;
-        private PatchScannerUiSummary? uiSummary;
+        // Keep independent result state so changing scope never replaces the report the user
+        // was reviewing in the other scope. Selected mods also retain their own latest result.
+        private readonly ScanViewState allModsResult = new ScanViewState();
+        private readonly Dictionary<string, ScanViewState> selectedModResults =
+            new Dictionary<string, ScanViewState>(StringComparer.OrdinalIgnoreCase);
+        private PatchScannerUiSummary? moduleListSummary;
         private ModLoadInfo? selectedModule;
+        private PatchScannerScope activeScope = PatchScannerScope.AllMods;
         private Vector2 moduleScroll;
         private Vector2 detailsScroll;
         private Vector2 actionsScroll;
         private string searchText = string.Empty;
         private string statusText = "HPS_StatusReady".Translate();
         private string statusTooltipText = "HPS_StatusReady".Translate();
-        private string lastExportPath = string.Empty;
-        private string currentReport = "HPS_StatusNoScanRun".Translate();
         private string detailsText = string.Empty;
 
         public Dialog_HarmonyPatchScanner(HarmonyPatchScannerSettings settings)
@@ -69,33 +72,72 @@ namespace HarmonyPatchScanner.RimWorld.UI
         private void DrawTopBar(Rect rect)
         {
             Text.Font = GameFont.Medium;
-            Widgets.Label(new Rect(rect.x, rect.y, 360f, rect.height), "HPS_ModName".Translate());
+            Widgets.Label(new Rect(rect.x, rect.y, 330f, rect.height), "HPS_ModName".Translate());
             Text.Font = GameFont.Small;
 
-            const float scanAllWidth = 115f;
-            const float conflictsWidth = 130f;
-            const float moduleWidth = 125f;
-            const float clearWidth = 80f;
-            var totalWidth = scanAllWidth + conflictsWidth + moduleWidth + clearWidth + PatchScannerUiConstants.Gap * 3f;
-            var x = rect.xMax - totalWidth;
+            const float scopeLabelWidth = 50f;
+            const float scopeButtonWidth = 180f;
+            const float clearWidth = 105f;
             var y = rect.y + 5f;
+            var clearRect = new Rect(rect.xMax - clearWidth, y, clearWidth, PatchScannerUiConstants.ButtonHeight);
+            var selectedRect = new Rect(
+                clearRect.x - PatchScannerUiConstants.Gap - scopeButtonWidth,
+                y,
+                scopeButtonWidth,
+                PatchScannerUiConstants.ButtonHeight);
+            var allRect = new Rect(
+                selectedRect.x - scopeButtonWidth,
+                y,
+                scopeButtonWidth,
+                PatchScannerUiConstants.ButtonHeight);
+            var scopeLabelRect = new Rect(
+                allRect.x - scopeLabelWidth - PatchScannerUiConstants.Gap,
+                y,
+                scopeLabelWidth,
+                PatchScannerUiConstants.ButtonHeight);
 
-            var scanRect = new Rect(x, y, scanAllWidth, PatchScannerUiConstants.ButtonHeight);
-            var conflictRect = new Rect(scanRect.xMax + PatchScannerUiConstants.Gap, y, conflictsWidth, PatchScannerUiConstants.ButtonHeight);
-            var moduleRect = new Rect(conflictRect.xMax + PatchScannerUiConstants.Gap, y, moduleWidth, PatchScannerUiConstants.ButtonHeight);
-            var clearRect = new Rect(moduleRect.xMax + PatchScannerUiConstants.Gap, y, clearWidth, PatchScannerUiConstants.ButtonHeight);
+            Text.Anchor = TextAnchor.MiddleLeft;
+            Widgets.Label(scopeLabelRect, "HPS_Scope".Translate());
+            Text.Anchor = TextAnchor.UpperLeft;
 
-            if (Widgets.ButtonText(scanRect, "HPS_ScanAllShort".Translate()))
-                RunScanAll();
+            if (DrawScopeButton(allRect, "HPS_ScopeAllMods".Translate(), activeScope == PatchScannerScope.AllMods, true))
+                SetScope(PatchScannerScope.AllMods);
 
-            if (Widgets.ButtonText(conflictRect, "HPS_FindConflictsShort".Translate()))
-                RunConflictScan();
+            var selectedEnabled = selectedModule != null;
+            if (DrawScopeButton(
+                    selectedRect,
+                    "HPS_ScopeSelectedMod".Translate(),
+                    activeScope == PatchScannerScope.SelectedMod,
+                    selectedEnabled))
+            {
+                SetScope(PatchScannerScope.SelectedMod);
+            }
 
-            if (Widgets.ButtonText(moduleRect, "HPS_ScanModShort".Translate()))
-                RunModuleScan();
+            if (!selectedEnabled)
+                TooltipHandler.TipRegion(selectedRect, "HPS_SelectModForScope".Translate());
 
             if (Widgets.ButtonText(clearRect, "HPS_Clear".Translate()))
                 ClearResults();
+        }
+
+        private static bool DrawScopeButton(Rect rect, string label, bool selected, bool enabled)
+        {
+            if (selected)
+                Widgets.DrawHighlightSelected(rect);
+            else if (enabled)
+                Widgets.DrawHighlightIfMouseover(rect);
+
+            var previousColor = GUI.color;
+            if (!enabled)
+                GUI.color = Color.gray;
+
+            Widgets.DrawBox(rect);
+            Text.Anchor = TextAnchor.MiddleCenter;
+            Widgets.Label(rect, label);
+            Text.Anchor = TextAnchor.UpperLeft;
+            GUI.color = previousColor;
+
+            return enabled && Widgets.ButtonInvisible(rect);
         }
 
         private void DrawBody(Rect rect)
@@ -111,7 +153,7 @@ namespace HarmonyPatchScanner.RimWorld.UI
             PatchScannerModuleListPanel.Draw(
                 moduleListRect,
                 loadOrder,
-                uiSummary,
+                moduleListSummary,
                 selectedModule,
                 searchText,
                 OnModuleSelected,
@@ -120,15 +162,18 @@ namespace HarmonyPatchScanner.RimWorld.UI
 
             PatchScannerDetailsPanel.Draw(detailsRect, detailsText, ref detailsScroll);
 
+            var activeResult = GetActiveResultState(createIfMissing: false);
+            var scanAction = activeScope == PatchScannerScope.AllMods ? (Action)RunScanAll : RunModuleScan;
+            var conflictAction = activeScope == PatchScannerScope.AllMods ? (Action)RunConflictScan : RunModuleConflictScan;
             PatchScannerActionsPanel.Draw(
                 actionsRect,
                 settings,
+                activeScope,
                 selectedModule,
-                lastExportPath,
+                activeResult?.LastExportPath ?? string.Empty,
                 logDirectory,
-                RunScanAll,
-                RunConflictScan,
-                RunModuleScan,
+                scanAction,
+                conflictAction,
                 ShowStaticFindings,
                 CopyLastPath,
                 ref actionsScroll);
@@ -159,9 +204,24 @@ namespace HarmonyPatchScanner.RimWorld.UI
         {
             selectedModule = module;
             settings.SelectedModuleId = module.ModId;
+            activeScope = PatchScannerScope.SelectedMod;
             detailsScroll = Vector2.zero;
             actionsScroll = Vector2.zero;
             SetStatus("HPS_StatusSelectedMod".Translate(module.DisplayName));
+            RefreshDetailsText();
+        }
+
+        private void SetScope(PatchScannerScope scope)
+        {
+            if (scope == PatchScannerScope.SelectedMod && selectedModule == null)
+                return;
+
+            activeScope = scope;
+            detailsScroll = Vector2.zero;
+            actionsScroll = Vector2.zero;
+            SetStatus(scope == PatchScannerScope.AllMods
+                ? "HPS_StatusAllModsScope".Translate()
+                : "HPS_StatusSelectedModScope".Translate(selectedModule?.DisplayName ?? string.Empty));
             RefreshDetailsText();
         }
 
@@ -175,8 +235,7 @@ namespace HarmonyPatchScanner.RimWorld.UI
                     return saved;
             }
 
-            return loadOrder.FirstOrDefault(mod => !mod.IsOfficial && !mod.IsCommunityLibrary) ??
-                   loadOrder.FirstOrDefault();
+            return null;
         }
 
         private PatchScannerOptions BuildOptions()
@@ -189,12 +248,20 @@ namespace HarmonyPatchScanner.RimWorld.UI
 
         private void RunScanAll()
         {
-            RunExport("HPS_ReportNameFullPatchScan".Translate(), () => scannerService.ExportAllPatches(BuildOptions()));
+            RunExport(
+                "HPS_ReportNameFullPatchScan".Translate(),
+                PatchScannerReportKind.AllPatches,
+                () => scannerService.ExportAllPatches(BuildOptions()),
+                allModsResult);
         }
 
         private void RunConflictScan()
         {
-            RunExport("HPS_ReportNameConflictScan".Translate(), () => scannerService.ExportConflictReport(BuildOptions()));
+            RunExport(
+                "HPS_ReportNameConflictScan".Translate(),
+                PatchScannerReportKind.AllConflicts,
+                () => scannerService.ExportConflictReport(BuildOptions()),
+                allModsResult);
         }
 
         private void RunModuleScan()
@@ -206,22 +273,50 @@ namespace HarmonyPatchScanner.RimWorld.UI
                 return;
             }
 
-            RunExport("HPS_ReportNameModuleScan".Translate(), () => scannerService.ExportModuleReport(BuildOptions(), selectedModule.ModId));
+            var resultState = GetActiveResultState(createIfMissing: true)!;
+            RunExport(
+                "HPS_ReportNameModuleScan".Translate(),
+                PatchScannerReportKind.ModulePatches,
+                () => scannerService.ExportModuleReport(BuildOptions(), selectedModule.ModId),
+                resultState);
         }
 
-        private void RunExport(string reportName, Func<PatchExportResult> export)
+        private void RunModuleConflictScan()
+        {
+            if (selectedModule == null)
+            {
+                SetStatus("HPS_StatusSelectModFirst".Translate());
+                Messages.Message(statusText, MessageTypeDefOf.RejectInput, false);
+                return;
+            }
+
+            var resultState = GetActiveResultState(createIfMissing: true)!;
+            RunExport(
+                "HPS_ReportNameModuleConflictScan".Translate(),
+                PatchScannerReportKind.ModuleConflicts,
+                () => scannerService.ExportModuleConflictReport(BuildOptions(), selectedModule.ModId),
+                resultState);
+        }
+
+        private void RunExport(
+            string reportName,
+            PatchScannerReportKind reportKind,
+            Func<PatchExportResult> export,
+            ScanViewState resultState)
         {
             try
             {
                 var result = export();
-                snapshot = result.Snapshot;
-                uiSummary = snapshot == null ? null : PatchScannerUiSummary.Build(snapshot, loadOrder);
-                lastExportPath = result.FilePath;
+                resultState.Snapshot = result.Snapshot;
+                resultState.Summary = result.Snapshot == null ? null : PatchScannerUiSummary.Build(result.Snapshot, loadOrder);
+                resultState.LastExportPath = result.FilePath;
+                resultState.ReportKind = reportKind;
+                moduleListSummary = resultState.Summary;
                 var fileName = Path.GetFileName(result.FilePath);
                 SetStatus(
                     "HPS_StatusExportSaved".Translate(reportName, fileName),
                     "HPS_StatusExportSavedPath".Translate(reportName, result.FilePath));
-                currentReport = "HPS_StatusReportCompletedAt".Translate(reportName, DateTime.Now.ToString("HH:mm:ss"));
+                resultState.CurrentReport = "HPS_StatusReportCompletedAt".Translate(reportName, DateTime.Now.ToString("HH:mm:ss"));
                 RefreshDetailsText();
                 detailsScroll = Vector2.zero;
             }
@@ -235,10 +330,9 @@ namespace HarmonyPatchScanner.RimWorld.UI
 
         private void ClearResults()
         {
-            snapshot = null;
-            uiSummary = null;
-            lastExportPath = string.Empty;
-            currentReport = "HPS_StatusNoScanRun".Translate();
+            allModsResult.Clear();
+            selectedModResults.Clear();
+            moduleListSummary = null;
             SetStatus("HPS_StatusCleared".Translate());
             RefreshDetailsText();
             detailsScroll = Vector2.zero;
@@ -246,6 +340,7 @@ namespace HarmonyPatchScanner.RimWorld.UI
 
         private void CopyLastPath()
         {
+            var lastExportPath = GetActiveResultState(createIfMissing: false)?.LastExportPath ?? string.Empty;
             if (string.IsNullOrEmpty(lastExportPath))
             {
                 SetStatus("HPS_StatusNoLogPath".Translate());
@@ -258,13 +353,19 @@ namespace HarmonyPatchScanner.RimWorld.UI
 
         private void ShowStaticFindings()
         {
+            var resultState = GetActiveResultState(createIfMissing: false);
+            var snapshot = resultState?.Snapshot;
             if (snapshot == null)
             {
                 SetStatus("HPS_StatusScanBeforeStaticFindings".Translate());
                 return;
             }
 
-            var actionableFindings = snapshot.StaticFindings
+            IReadOnlyList<StaticPatchFinding> scopedFindings = snapshot.StaticFindings;
+            if (activeScope == PatchScannerScope.SelectedMod && selectedModule != null)
+                scopedFindings = scannerService.GetModuleStaticFindings(snapshot, selectedModule.ModId);
+
+            var actionableFindings = scopedFindings
                 .Where(finding => finding.Confidence == StaticFindingConfidence.Deterministic ||
                                   finding.Confidence == StaticFindingConfidence.Likely)
                 .ToList();
@@ -275,18 +376,64 @@ namespace HarmonyPatchScanner.RimWorld.UI
                 return;
             }
 
-            Find.WindowStack.Add(new Dialog_StaticIlFindings(actionableFindings, snapshot.StaticFindings.Count));
+            Find.WindowStack.Add(new Dialog_StaticIlFindings(actionableFindings, scopedFindings.Count));
         }
 
         private void RefreshDetailsText()
         {
-            detailsText = PatchScannerDetailsPanel.BuildDetailsText(uiSummary, selectedModule, currentReport);
+            var resultState = GetActiveResultState(createIfMissing: false);
+            detailsText = PatchScannerDetailsPanel.BuildDetailsText(
+                activeScope,
+                resultState?.Summary,
+                activeScope == PatchScannerScope.SelectedMod ? selectedModule : null,
+                resultState?.ReportKind ?? PatchScannerReportKind.None,
+                resultState?.LastExportPath ?? string.Empty,
+                string.IsNullOrEmpty(resultState?.CurrentReport)
+                    ? "HPS_StatusNoScanRun".Translate()
+                    : resultState!.CurrentReport);
+        }
+
+        private ScanViewState? GetActiveResultState(bool createIfMissing)
+        {
+            if (activeScope == PatchScannerScope.AllMods)
+                return allModsResult;
+
+            if (selectedModule == null)
+                return null;
+
+            if (selectedModResults.TryGetValue(selectedModule.ModId, out var resultState))
+                return resultState;
+
+            if (!createIfMissing)
+                return null;
+
+            resultState = new ScanViewState();
+            selectedModResults[selectedModule.ModId] = resultState;
+            return resultState;
         }
 
         private void SetStatus(string text, string? tooltip = null)
         {
             statusText = text;
             statusTooltipText = tooltip ?? text;
+        }
+
+        private sealed class ScanViewState
+        {
+            public PatchScanSnapshot? Snapshot { get; set; }
+            public PatchScannerUiSummary? Summary { get; set; }
+            public string LastExportPath { get; set; } = string.Empty;
+            public string CurrentReport { get; set; } = string.Empty;
+            public PatchScannerReportKind ReportKind { get; set; } = PatchScannerReportKind.None;
+
+            public void Clear()
+            {
+                Snapshot = null;
+                Summary = null;
+                LastExportPath = string.Empty;
+                CurrentReport = string.Empty;
+                ReportKind = PatchScannerReportKind.None;
+            }
         }
 
     }

@@ -6,9 +6,11 @@ settings UI.
 
 Available actions:
 
-- `Scan all Harmony patches` exports `AllHarmonyPatches.txt`.
-- `Find duplicate/conflicting patches` exports `DuplicateHarmonyPatches.txt`.
-- `Scan selected mod` exports `ModuleScan_<mod>.txt`.
+- In `All mods` scope, `Scan all Harmony patches` exports `AllHarmonyPatches.txt`.
+- In `All mods` scope, `Find duplicate/conflicting patches` exports `DuplicateHarmonyPatches.txt`.
+- In `Selected mod` scope, `Scan selected mod` exports `ModuleScan_<mod>.txt`.
+- In `Selected mod` scope, `Find selected mod conflicts` exports `ModuleConflicts_<mod>.txt`.
+- Static IL findings follow the active scope.
 - `Exclude common lifecycle methods`.
 - `Exclude community libraries`.
 

@@ -108,9 +108,13 @@ namespace HarmonyPatchScanner.Core
                 string.Equals(m.ModId, moduleId, StringComparison.OrdinalIgnoreCase));
 
             var moduleName = module?.DisplayName ?? moduleId;
-            var moduleAssemblies = new HashSet<string>(
-                module?.AssemblyNames ?? Array.Empty<string>(),
-                StringComparer.OrdinalIgnoreCase);
+            var moduleAssemblies = GetModuleAssemblies(module);
+            var modulePatches = GetModulePatches(snapshot, moduleId);
+            var modulePatchesByTarget = modulePatches
+                .GroupBy(p => p.TargetMethod)
+                .ToDictionary(g => g.Key, g => g.ToList());
+            var moduleConflicts = GetModuleConflicts(snapshot, moduleId);
+            var conflictFileName = "ModuleConflicts_" + MethodNameFormatter.SanitizeFileName(moduleName) + ".txt";
 
             var results = new StringBuilder();
 
@@ -125,38 +129,22 @@ namespace HarmonyPatchScanner.Core
             AppendFilterNotes(results, options);
             AppendErrors(results, snapshot);
 
-            var modulePatches = snapshot.Patches
-                .Where(p => IsFromModule(p, moduleId, moduleAssemblies))
-                .ToList();
-
-            var modulePatchesByTarget = modulePatches
-                .GroupBy(p => p.TargetMethod)
-                .ToDictionary(g => g.Key, g => g.ToList());
-
-            var conflictsByTarget = snapshot.Patches
-                .GroupBy(p => p.TargetMethod)
-                .Where(g => g.Any(p => IsFromModule(p, moduleId, moduleAssemblies)) &&
-                            g.Any(p => !IsFromModule(p, moduleId, moduleAssemblies)))
-                .ToDictionary(g => g.Key, g => g.ToList());
-
-            var totalTranspilers = modulePatches.Count(p => p.PatchType == HarmonyPatchKind.Transpiler);
-            var totalPrefixes = modulePatches.Count(p => p.PatchType == HarmonyPatchKind.Prefix);
-            var totalPostfixes = modulePatches.Count(p => p.PatchType == HarmonyPatchKind.Postfix);
-            var totalFinalizers = modulePatches.Count(p => p.PatchType == HarmonyPatchKind.Finalizer);
-            var totalShortCircuits = modulePatches.Count(p => p.CanShortCircuit);
-            var totalOfficial = modulePatches.Count(p => p.TargetsOfficialCode);
-
             results.AppendLine($"Patched Methods             : {modulePatchesByTarget.Count}");
             results.AppendLine($"Total Patches               : {modulePatches.Count}");
-            results.AppendLine($"  - Prefixes                : {totalPrefixes}");
-            results.AppendLine($"  - Postfixes               : {totalPostfixes}");
-            results.AppendLine($"  - Transpilers             : {totalTranspilers}  (highest risk patch type)");
-            results.AppendLine($"  - Finalizers              : {totalFinalizers}");
-            results.AppendLine($"  - Prefixes (short-circuit): {totalShortCircuits}  (can skip original method)");
-            results.AppendLine($"  - Target official code    : {totalOfficial}");
-            results.AppendLine($"Potential conflicts with other mods: {conflictsByTarget.Count}");
+            results.AppendLine($"  - Prefixes                : {modulePatches.Count(p => p.PatchType == HarmonyPatchKind.Prefix)}");
+            results.AppendLine($"  - Postfixes               : {modulePatches.Count(p => p.PatchType == HarmonyPatchKind.Postfix)}");
+            results.AppendLine($"  - Transpilers             : {modulePatches.Count(p => p.PatchType == HarmonyPatchKind.Transpiler)}  (highest risk patch type)");
+            results.AppendLine($"  - Finalizers              : {modulePatches.Count(p => p.PatchType == HarmonyPatchKind.Finalizer)}");
+            results.AppendLine($"  - Prefixes (short-circuit): {modulePatches.Count(p => p.CanShortCircuit)}  (can skip original method)");
+            results.AppendLine($"  - Target official code    : {modulePatches.Count(p => p.TargetsOfficialCode)}");
+            results.AppendLine($"Potential shared targets    : {moduleConflicts.Count}");
+            results.AppendLine($"Detailed conflict report    : {conflictFileName}");
+            results.AppendLine("  Use Find conflicts in Selected mod scope to create or refresh that report.");
             results.AppendLine();
-            AppendStaticAnalysisSummary(results, snapshot.StaticFindings.Where(f => modulePatches.Any(p => FindingMatchesPatch(f, p))).ToList());
+
+            AppendStaticAnalysisSummary(
+                results,
+                snapshot.StaticFindings.Where(f => modulePatches.Any(p => FindingMatchesPatch(f, p))).ToList());
 
             if (modulePatches.Count == 0)
             {
@@ -164,12 +152,90 @@ namespace HarmonyPatchScanner.Core
                 return results.ToString();
             }
 
-            AppendModulePatchDetails(results, moduleName, modulePatchesByTarget, conflictsByTarget);
+            AppendModulePatchDetails(results, moduleName, modulePatchesByTarget);
             AppendModulePatchTypes(results, modulePatches);
-            AppendModuleConflicts(results, moduleName, moduleId, moduleAssemblies, conflictsByTarget);
-            AppendModuleSummary(results, moduleName, moduleId, module, moduleAssemblies, modulePatchesByTarget, modulePatches, conflictsByTarget);
+            AppendModuleSummary(
+                results,
+                moduleName,
+                moduleId,
+                module,
+                moduleAssemblies,
+                modulePatchesByTarget,
+                modulePatches,
+                moduleConflicts.Count,
+                conflictFileName);
 
             return results.ToString();
+        }
+
+        public string BuildModuleConflictReport(PatchScanSnapshot snapshot, PatchScannerOptions options, string moduleId)
+        {
+            var module = snapshot.LoadOrder.FirstOrDefault(m =>
+                string.Equals(m.ModId, moduleId, StringComparison.OrdinalIgnoreCase));
+            var moduleName = module?.DisplayName ?? moduleId;
+            var moduleAssemblies = GetModuleAssemblies(module);
+            var modulePatches = GetModulePatches(snapshot, moduleId);
+            var conflictsByTarget = GetModuleConflicts(snapshot, moduleId)
+                .ToDictionary(conflict => conflict.MethodKey, conflict => conflict.Patches.ToList());
+            var conflictTargets = new HashSet<string>(conflictsByTarget.Keys, StringComparer.Ordinal);
+            var results = new StringBuilder();
+
+            AppendTitle(results, "Harmony Patch Scanner - Selected Mod Conflict Report");
+            results.AppendLine($"Scan Time   : {snapshot.ScanTime:yyyy-MM-dd HH:mm:ss}");
+            results.AppendLine($"Module      : {moduleName}");
+            results.AppendLine($"Module Id   : {moduleId}");
+            results.AppendLine($"Load Pos    : {MethodNameFormatter.FormatLoadOrder(module?.Position)}");
+            results.AppendLine($"Assemblies  : {string.Join(", ", moduleAssemblies)}");
+            results.AppendLine();
+            results.AppendLine("This standalone report covers only targets shared by the selected mod and other mods.");
+            results.AppendLine("Structural overlap is a potential conflict, not proof of a malfunction.");
+            results.AppendLine("AllHarmonyPatches.txt and DuplicateHarmonyPatches.txt are not required or written.");
+            results.AppendLine();
+
+            AppendFilterNotes(results, options);
+            AppendErrors(results, snapshot);
+            var conflictRisks = conflictsByTarget.Values
+                .Select(patches => GetModuleConflictRisk(patches, moduleId, moduleAssemblies))
+                .ToList();
+            results.AppendLine($"Selected mod patches       : {modulePatches.Count}");
+            results.AppendLine($"Potential shared targets   : {conflictsByTarget.Count}");
+            results.AppendLine($"  - Potential High         : {conflictRisks.Count(risk => risk == 2)}");
+            results.AppendLine($"  - Potential Medium       : {conflictRisks.Count(risk => risk == 1)}");
+            results.AppendLine($"  - Potential Low          : {conflictRisks.Count(risk => risk == 0)}");
+            results.AppendLine();
+            AppendStaticAnalysisSummary(
+                results,
+                snapshot.StaticFindings.Where(f => conflictTargets.Contains(f.TargetMethod)).ToList());
+            AppendModuleConflicts(results, moduleName, moduleId, moduleAssemblies, conflictsByTarget);
+
+            return results.ToString();
+        }
+
+        public List<PatchRecord> GetModulePatches(PatchScanSnapshot snapshot, string moduleId)
+        {
+            var module = snapshot.LoadOrder.FirstOrDefault(m =>
+                string.Equals(m.ModId, moduleId, StringComparison.OrdinalIgnoreCase));
+            var moduleAssemblies = GetModuleAssemblies(module);
+
+            return snapshot.Patches
+                .Where(p => IsFromModule(p, moduleId, moduleAssemblies))
+                .ToList();
+        }
+
+        public List<ConflictRecord> GetModuleConflicts(PatchScanSnapshot snapshot, string moduleId)
+        {
+            var module = snapshot.LoadOrder.FirstOrDefault(m =>
+                string.Equals(m.ModId, moduleId, StringComparison.OrdinalIgnoreCase));
+            var moduleAssemblies = GetModuleAssemblies(module);
+
+            return snapshot.Patches
+                .GroupBy(p => p.TargetMethod)
+                .Where(g => g.Any(p => IsFromModule(p, moduleId, moduleAssemblies)) &&
+                            g.Any(p => !IsFromModule(p, moduleId, moduleAssemblies)))
+                .Select(g => new ConflictRecord(g.Key, g.ToList()))
+                .OrderByDescending(c => GetModuleConflictRisk(c.Patches, moduleId, moduleAssemblies))
+                .ThenBy(c => c.MethodKey)
+                .ToList();
         }
 
         public List<ConflictRecord> GetCrossModConflicts(IEnumerable<PatchRecord> patches)
@@ -520,8 +586,7 @@ namespace HarmonyPatchScanner.Core
         private static void AppendModulePatchDetails(
             StringBuilder sb,
             string moduleName,
-            Dictionary<string, List<PatchRecord>> modulePatchesByTarget,
-            Dictionary<string, List<PatchRecord>> conflictsByTarget)
+            Dictionary<string, List<PatchRecord>> modulePatchesByTarget)
         {
             sb.AppendLine("====================================================");
             sb.AppendLine($"  All Patches by {moduleName}");
@@ -531,18 +596,9 @@ namespace HarmonyPatchScanner.Core
             foreach (var targetGroup in modulePatchesByTarget.OrderBy(x => x.Key))
             {
                 var patches = targetGroup.Value;
-                var hasConflict = conflictsByTarget.ContainsKey(targetGroup.Key);
                 var officialTag = patches.First().TargetsOfficialCode ? "  [official code]" : string.Empty;
-                var conflictTag = hasConflict ? "  [potential conflict]" : string.Empty;
 
-                sb.AppendLine($"  Target : {MethodNameFormatter.FormatMethodName(targetGroup.Key, verbose: false)}{officialTag}{conflictTag}");
-
-                if (patches.Any(p => p.CanShortCircuit) &&
-                    patches.Count(p => p.PatchType == HarmonyPatchKind.Prefix) > 1)
-                {
-                    sb.AppendLine("    Potential short-circuit chain: a prefix here can return false,");
-                    sb.AppendLine("    which skips the original and all lower-priority prefixes.");
-                }
+                sb.AppendLine($"  Target : {MethodNameFormatter.FormatMethodName(targetGroup.Key, verbose: false)}{officialTag}");
 
                 foreach (var patch in patches)
                     AppendPatchDetail(sb, patch, includeOwner: false);
@@ -684,7 +740,8 @@ namespace HarmonyPatchScanner.Core
             HashSet<string> moduleAssemblies,
             Dictionary<string, List<PatchRecord>> modulePatchesByTarget,
             IReadOnlyList<PatchRecord> modulePatches,
-            Dictionary<string, List<PatchRecord>> conflictsByTarget)
+            int conflictCount,
+            string conflictFileName)
         {
             sb.AppendLine("====================================================");
             sb.AppendLine($"  Module Summary - {moduleName}");
@@ -701,7 +758,8 @@ namespace HarmonyPatchScanner.Core
             sb.AppendLine($"    Finalizers           : {modulePatches.Count(p => p.PatchType == HarmonyPatchKind.Finalizer)}");
             sb.AppendLine($"  Short-circuit Prefixes : {modulePatches.Count(p => p.CanShortCircuit)}");
             sb.AppendLine($"  Targets Official Code  : {modulePatches.Count(p => p.TargetsOfficialCode)}");
-            sb.AppendLine($"  Potential Conflicts    : {conflictsByTarget.Count} method(s) shared with other mods");
+            sb.AppendLine($"  Potential Conflicts    : {conflictCount} method(s) shared with other mods");
+            sb.AppendLine($"  Detailed Report        : {conflictFileName}");
             sb.AppendLine();
         }
 
@@ -829,6 +887,13 @@ namespace HarmonyPatchScanner.Core
             }
 
             return patch.Owner.IndexOf(moduleId, StringComparison.OrdinalIgnoreCase) >= 0;
+        }
+
+        private static HashSet<string> GetModuleAssemblies(ModLoadInfo? module)
+        {
+            return new HashSet<string>(
+                module?.AssemblyNames ?? Array.Empty<string>(),
+                StringComparer.OrdinalIgnoreCase);
         }
 
         private static int GetModuleConflictRisk(

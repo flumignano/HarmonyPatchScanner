@@ -1,4 +1,4 @@
-# Harmony Patch Scanner for RimWorld
+# Harmony Patch Scanner
 
 Harmony Patch Scanner is an in-game RimWorld debugging and mod-development utility.
 
@@ -9,6 +9,8 @@ It lists loaded Harmony patches, identifies methods patched by multiple mods, hi
 - Full Harmony patch export to `AllHarmonyPatches.txt`.
 - Duplicate/shared target export to `DuplicateHarmonyPatches.txt`.
 - Selected-mod export to `ModuleScan_<mod>.txt`.
+- Selected-mod conflict export to `ModuleConflicts_<mod>.txt`.
+- Explicit `All mods` and `Selected mod` scopes with matching scan, conflict, and static-analysis actions.
 - Patch classification by prefix, postfix, transpiler, and finalizer.
 - Owner, Harmony ID, priority, index, before/after hints, target method, and patch method reporting.
 - Short-circuit prefix detection.
@@ -39,6 +41,9 @@ Open RimWorld, enable Harmony and this mod, then go to:
 Reports are written under RimWorld's config folder:
 
 `Config\HarmonyPatchScanner\logs`
+
+`ModuleScan_<mod>.txt` contains the selected mod's patch inventory and points to
+the separate `ModuleConflicts_<mod>.txt` report for shared-target analysis.
 
 ## Attribution
 
